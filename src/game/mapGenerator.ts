@@ -67,11 +67,8 @@ export function generateIslandMap(seed: number = 42): GameMap {
         tile = 'SHALLOW_WATER';
       } else if (islandElevation < 0.6) {
         tile = 'SAND';
-      } else if (islandElevation > 0.95 && x > cx - 2 && y < cy - 2) {
-        // Small rocky hill in north-east
-        tile = 'HILL_ROCK';
-      } else if (islandElevation > 0.78 && x < cx - 1) {
-        // Forest soil / denser vegetation in west
+      } else if (islandElevation > 0.76 && x < cx) {
+        // Lush forest grove in western/central area
         tile = 'FOREST_GRASS';
       } else {
         tile = 'GRASS';
@@ -170,14 +167,14 @@ export function generateIslandMap(seed: number = 42): GameMap {
             available: true,
             variant: Math.floor(rand * 40) % 3,
           });
-        } else if (rand > 0.92) {
+        } else if (rand > 0.86) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
             y,
-            type: 'STONE', // Limestone boulder
+            type: 'STONE', // Natural weathered boulder
             available: true,
-            variant: Math.floor(rand * 25) % 2,
+            variant: Math.floor(rand * 25) % 3,
           });
         }
       } else if (tile === 'FOREST_GRASS') {
@@ -190,7 +187,7 @@ export function generateIslandMap(seed: number = 42): GameMap {
             available: true,
             variant: Math.floor(rand * 60) % 3,
           });
-        } else if (rand > 0.22 && rand < 0.35) {
+        } else if (rand >= 0.22 && rand < 0.35) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
@@ -199,16 +196,14 @@ export function generateIslandMap(seed: number = 42): GameMap {
             available: true,
             variant: Math.floor(rand * 45) % 3,
           });
-        }
-      } else if (tile === 'HILL_ROCK') {
-        if (rand < 0.3) {
+        } else if (rand >= 0.35 && rand < 0.44) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
             y,
             type: 'STONE',
             available: true,
-            variant: 0,
+            variant: Math.floor(rand * 30) % 3,
           });
         }
       }
