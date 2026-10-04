@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Settings, Sun, Moon, Sunrise, Sunset, Home } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Sun, Moon, Sunrise, Sunset, Home, BookOpen, ZoomIn } from 'lucide-react';
 import { Inventory } from '../game/types';
 
 interface TopBarProps {
@@ -10,16 +10,24 @@ interface TopBarProps {
   onToggleMute: () => void;
   onOpenSettings: () => void;
   onOpenLobby: () => void;
+  onOpenJournal: () => void;
+  secretsCount?: number;
+  zoomLevel?: number;
+  onCycleZoom?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
-  worldName = 'Mirni Otok',
+  worldName = 'Otok Magle',
   inventory,
   timeOfDay,
   isMuted,
   onToggleMute,
   onOpenSettings,
   onOpenLobby,
+  onOpenJournal,
+  secretsCount = 0,
+  zoomLevel = 1.55,
+  onCycleZoom,
 }) => {
   // Determine time label and icon
   let timeLabel = 'Dan';
@@ -111,8 +119,24 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Right side: Lobby, Mute & Settings buttons */}
+      {/* Right side: Journal, Lobby, Mute & Settings buttons */}
       <div className="flex items-center gap-1.5 pointer-events-auto">
+        <button
+          type="button"
+          onClick={onOpenJournal}
+          aria-label="Dnevnik (Zadaci i tajne)"
+          title="Otvori Dnevnik (Zadaci i tajne)"
+          className="h-8 px-2.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-cyan-300 flex items-center gap-1.5 backdrop-blur-xs border border-cyan-500/30 shadow-md active:scale-95 transition-all text-xs font-semibold"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Dnevnik</span>
+          {secretsCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 font-bold text-[10px] flex items-center justify-center">
+              {secretsCount}
+            </span>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={onOpenLobby}
@@ -123,6 +147,21 @@ export const TopBar: React.FC<TopBarProps> = ({
           <Home className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Predvorje</span>
         </button>
+
+        {onCycleZoom && (
+          <button
+            type="button"
+            onClick={onCycleZoom}
+            aria-label="Zum kamere"
+            title={`Udaljenost kamere: ${zoomLevel}x (dodirni za promjenu)`}
+            className="h-8 px-2 rounded-full bg-slate-900/70 hover:bg-slate-800 text-cyan-300 flex items-center gap-1 backdrop-blur-xs border border-cyan-500/30 shadow-md active:scale-95 transition-all text-xs"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+            <span className="font-semibold text-[11px] tabular-nums text-slate-200">
+              {zoomLevel}x
+            </span>
+          </button>
+        )}
 
         <button
           type="button"

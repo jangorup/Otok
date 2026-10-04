@@ -122,6 +122,52 @@ export interface SmokeParticle {
   maxLife: number;
 }
 
+export interface NPCEntity {
+  id: string;
+  name: string;
+  role: string;
+  x: number;
+  y: number;
+  tileX: number;
+  tileY: number;
+  avatarIcon: string;
+  color: string;
+  dialogue: string;
+  secondaryDialogue?: string;
+  associatedSecretId?: string;
+}
+
+// Stubs for future expansions without refactors (whip attacks, puzzles, caves, quests, archipelago)
+export interface WhipHazard {
+  id: string;
+  x: number;
+  y: number;
+  phase: number;
+  height: number;
+  maxHeight: number;
+  curveFactor: number;
+  color: string;
+  life: number;
+  maxLife: number;
+  // Future combat fields:
+  // damage?: number;
+  // isActiveThreat?: boolean;
+}
+
+export interface PuzzleState {
+  id: string;
+  name: string;
+  isSolved: boolean;
+  data: Record<string, unknown>;
+}
+
+export interface CaveMapZone {
+  id: string;
+  name: string;
+  entranceTile: { x: number; y: number };
+  isDiscovered: boolean;
+}
+
 export interface GameSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
@@ -163,4 +209,7 @@ export interface GameSaveState {
   placedBuildings: PlacedBuilding[];
   harvestedNodeIds: { id: string; respawnTime: number }[];
   timeOfDay: number;
+  hasSeenIntro?: boolean;
+  discoveredSecretIds?: string[];
+  talkedToNpcIds?: string[];
 }

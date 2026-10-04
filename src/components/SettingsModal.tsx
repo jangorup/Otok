@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Volume2, VolumeX, RotateCcw, AlertTriangle, Home, HelpCircle } from 'lucide-react';
+import { X, Volume2, VolumeX, RotateCcw, AlertTriangle, Home, HelpCircle, Sparkles, ZoomIn } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -7,7 +7,10 @@ interface SettingsModalProps {
   onToggleMute: () => void;
   onNewGame: () => void;
   onOpenLobby?: () => void;
+  onShowIntro?: () => void;
   onClose: () => void;
+  zoomLevel?: number;
+  onSetZoom?: (zoom: number) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -16,7 +19,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleMute,
   onNewGame,
   onOpenLobby,
+  onShowIntro,
   onClose,
+  zoomLevel = 1.55,
+  onSetZoom,
 }) => {
   const [confirmNewGame, setConfirmNewGame] = useState<boolean>(false);
 
@@ -35,13 +41,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleShowIntroStory = () => {
+    if (onShowIntro) {
+      onShowIntro();
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 bg-slate-950/75 backdrop-blur-xs select-none">
       <div className="relative w-full max-w-md bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-950/40">
           <h2 className="font-heading font-bold text-base text-amber-200">
-            Postavke i Pomoć
+            Kletva Otoka - Postavke i Pomoć
           </h2>
           <button
             type="button"
@@ -53,7 +66,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-3.5 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 space-y-3 max-h-[80vh] overflow-y-auto">
           {/* Lobby Option */}
           {onOpenLobby && (
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
@@ -81,6 +94,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
+          {/* Story Intro Replay */}
+          {onShowIntro && (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-cyan-500/15 text-cyan-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    Uvodna priča (Kletva Otoka)
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Ponovno pogledaj legendu o morskim bičevima
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleShowIntroStory}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-colors shadow-sm"
+              >
+                Pogledaj
+              </button>
+            </div>
+          )}
+
           {/* Audio Setting */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
             <div className="flex items-center gap-2.5">
@@ -92,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Glazba i zvučni efekti
                 </div>
                 <div className="text-xs text-slate-400">
-                  Mediteranski šum mora i smirujuće melodije
+                  Smirujući šum valova i otočne melodije
                 </div>
               </div>
             </div>
@@ -110,27 +150,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
 
+          {/* Camera Zoom Setting (Closer for mobile) */}
+          {onSetZoom && (
+            <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-sky-500/15 text-sky-400">
+                  <ZoomIn className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    Udaljenost kamere (Zum)
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Približava pogled za ugodnije igranje na mobitelu
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: 'Udaljeno', val: 1.0, sub: '1.0x' },
+                  { label: 'Srednje', val: 1.25, sub: '1.25x' },
+                  { label: 'Blizu ★', val: 1.55, sub: '1.55x' },
+                  { label: 'Vrlo blizu', val: 1.75, sub: '1.75x' },
+                ].map((opt) => {
+                  const isSelected = Math.abs(zoomLevel - opt.val) < 0.08;
+                  return (
+                    <button
+                      key={opt.val}
+                      type="button"
+                      onClick={() => onSetZoom(opt.val)}
+                      className={`py-2 px-1 rounded-lg text-center transition-all ${
+                        isSelected
+                          ? 'bg-cyan-600 text-white font-bold ring-2 ring-cyan-400 shadow-md scale-[1.02]'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold">{opt.label}</div>
+                      <div className="text-[10px] opacity-75">{opt.sub}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* How to play / info */}
           <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 text-xs text-slate-300 space-y-2">
             <div className="flex items-center gap-1.5 font-semibold text-amber-300">
               <HelpCircle className="w-4 h-4" />
-              <span>Kako igrati:</span>
+              <span>Vodič kroz otok:</span>
             </div>
-            <ul className="space-y-1 list-disc list-inside text-slate-300">
+            <ul className="space-y-1.5 list-disc list-inside text-slate-300">
               <li>
-                <strong className="text-slate-100">Kretanje:</strong> Povuci virtualni joystick lijevo ili koristi tipke WASD / strelice na tipkovnici.
+                <strong className="text-slate-100">Kretanje:</strong> Virtualni joystick lijevo ili tipke WASD / strelice na tipkovnici.
               </li>
               <li>
-                <strong className="text-slate-100">Istraživanje:</strong> Magla se otkriva kamo god hodaš. Otkrij plaže, šumarke i brežuljak.
+                <strong className="text-slate-100">Razgovor s otočanima:</strong> Priđi Starcu Goranu, Ribaru Mati ili Travarici Mari i pritisni gumb <strong className="text-cyan-300">Pričaj</strong> ili ih dodirni na ekranu.
               </li>
               <li>
-                <strong className="text-slate-100">Prikupljanje:</strong> Priđi stablu, stijeni, grmu ili plaži i pritisni desni gumb.
+                <strong className="text-slate-100">Dnevnik:</strong> Otvori gumb <strong className="text-cyan-300">Dnevnik</strong> gore desno za pregled glavnog cilja i zabilježenih tajni.
               </li>
               <li>
-                <strong className="text-slate-100">Gradnja:</strong> Otvori izbornik "Gradi", odaberi kućicu i postavi je na slobodnu travu ili pijesak.
+                <strong className="text-slate-100">Noćni morski bičevi:</strong> Noću se iz mora uzdižu svjetlucavi bičevi. Za sada su to misteriozni vizualni znakovi kletve.
               </li>
               <li>
-                <strong className="text-slate-100">Spremanje:</strong> Igra se automatski sprema svakih nekoliko sekundi!
+                <strong className="text-slate-100">Utočišta i Gradnja:</strong> Sakupljaj drvo, kamen i vlakna te izgradi <strong className="text-amber-300">Utočište</strong> za siguran zaklon.
               </li>
             </ul>
           </div>
@@ -144,7 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Resetiraj trenutni otok
                   </div>
                   <div className="text-xs text-slate-400">
-                    Započni ispočetka na ovom otoku
+                    Započni novu avanturu na ovom otoku
                   </div>
                 </div>
 

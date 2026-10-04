@@ -40,10 +40,10 @@ export const BuildModal: React.FC<BuildModalProps> = ({
             </div>
             <div>
               <h2 className="font-heading font-bold text-lg text-amber-200">
-                Gradi svoj dom
+                Utočišta i Gradnja
               </h2>
               <p className="text-xs text-slate-400">
-                Odaberi zgradu za postavljanje na otoku
+                Sagradi sigurno sklonište od noćnih morskih bičeva
               </p>
             </div>
           </div>

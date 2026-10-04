@@ -15,8 +15,8 @@ export const DAY_CYCLE_MS = 240000; // 4 minutes per day/night cycle
 export const BUILDINGS: Record<string, BuildingDefinition> = {
   HUT: {
     type: 'HUT',
-    name: 'Mala koliba',
-    description: 'Ugodna drvena koliba sa slamnatim krovom. Savršeno prvo sklonište.',
+    name: 'Utočište',
+    description: 'Jednostavno drveno sklonište sa slamnatim krovom. Pruža osnovni zaklon pred noćnim morskim bičevima.',
     width: 2,
     height: 2,
     cost: {
@@ -28,7 +28,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
   STONE_HOUSE: {
     type: 'STONE_HOUSE',
     name: 'Kamena kuća',
-    description: 'Čvrsta mediteranska kuća od klesanog kamena s krovom od crvenog crijepa.',
+    description: 'Čvrsto utočište od klesanog otočnog kamena s debelim zidovima. Sigurno skrovište od drevnih morskih sila.',
     width: 2,
     height: 2,
     cost: {
@@ -39,8 +39,8 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
   },
   BEACH_COTTAGE: {
     type: 'BEACH_COTTAGE',
-    name: 'Kućica uz plažu',
-    description: 'Prostrana obalna kućica na drvenim stupovima s pogledom na more.',
+    name: 'Obalna kolibica',
+    description: 'Prostrana obalna kolibica na drvenim stupovima s pogledom na tajanstvene morske vode.',
     width: 3,
     height: 2,
     cost: {

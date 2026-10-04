@@ -28,16 +28,16 @@ interface LobbyProps {
 }
 
 const DEFAULT_ISLAND_NAMES = [
-  'Otok Maslina',
-  'Sunčani Otok',
-  'Otok Smokva',
-  'Zlatni Žal',
-  'Mirna Uvala',
-  'Otok Lavande',
-  'Plavi Biser',
-  'Tirkizni Otok',
-  'Otok Galebova',
-  'Borova Uvala',
+  'Otok Magle',
+  'Ukleti Greben',
+  'Zaboravljeni Žal',
+  'Otok Šapata',
+  'Mistična Uvala',
+  'Svetište Valova',
+  'Greben Morskih Bičeva',
+  'Otok Dubina',
+  'Otok Tajni',
+  'Uvala Sjena',
 ];
 
 const DEFAULT_CHARACTER_NAMES = [
@@ -422,10 +422,10 @@ export const Lobby: React.FC<LobbyProps> = ({
           </div>
           <div>
             <h1 className="font-heading text-xl sm:text-2xl font-bold tracking-wide text-amber-100 drop-shadow-sm">
-              Mirni Otok
+              Kletva Otoka
             </h1>
-            <p className="text-[10px] sm:text-xs text-sky-200/80 font-medium">
-              Tvoja opuštajuća mediteranska oaza
+            <p className="text-[10px] sm:text-xs text-cyan-200/80 font-medium">
+              Mistično otočje pod drevnom kletvom morskih bičeva
             </p>
           </div>
         </div>
@@ -531,7 +531,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                       Nazovi svoj novi otok
                     </h2>
                     <p className="text-xs text-slate-300">
-                      Svaki otok ima vlastite prirodne uvale, pješčane plaže i resursi se automatski spremaju.
+                      Svaki otok ima vlastite prirodne uvale, obale i drevne tajne pod velom kletve.
                     </p>
                   </div>
 
@@ -546,7 +546,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                         onChange={(e) => setNewWorldName(e.target.value)}
                         maxLength={28}
                         required
-                        placeholder="npr. Sunčani Otok"
+                        placeholder="npr. Otok Magle"
                         className="flex-1 bg-slate-950/70 border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors"
                       />
                       <button

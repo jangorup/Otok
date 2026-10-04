@@ -1,10 +1,12 @@
 import { MAP_WIDTH, MAP_HEIGHT, TILE_SIZE } from './constants';
-import { TileType, ResourceNode } from './types';
+import { TileType, ResourceNode, NPCEntity } from './types';
+import { NPC_VILLAGERS } from './storyData';
 
 export interface GameMap {
   tiles: TileType[][];
   resources: ResourceNode[];
   initialPlayerPos: { x: number; y: number };
+  npcs: NPCEntity[];
 }
 
 // Simple deterministic noise for reproducible organic island generation
@@ -210,6 +212,80 @@ export function generateIslandMap(seed: number = 42): GameMap {
     }
   }
 
+  // Place NPCs on dry land near spawn & interesting landmarks
+  const npcs: NPCEntity[] = [];
+
+  const occupiedTiles = new Set<string>();
+  occupiedTiles.add(`${spawnX},${spawnY}`);
+
+  const findFreeDryTile = (targetX: number, targetY: number, preferredTile?: TileType): { x: number; y: number } => {
+    let bestDist = Infinity;
+    let bestX = spawnX;
+    let bestY = spawnY;
+
+    for (let r = 0; r < 14; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const tx = targetX + dx;
+          const ty = targetY + dy;
+          if (tx < 2 || tx >= MAP_WIDTH - 2 || ty < 2 || ty >= MAP_HEIGHT - 2) continue;
+          const key = `${tx},${ty}`;
+          if (occupiedTiles.has(key)) continue;
+
+          const t = tiles[ty][tx];
+          if (t === 'DEEP_WATER' || t === 'WATER' || t === 'SHALLOW_WATER') continue;
+
+          let matchWeight = 0;
+          if (preferredTile && t === preferredTile) matchWeight = -2;
+
+          const d = Math.hypot(dx, dy) + matchWeight;
+          if (d < bestDist) {
+            bestDist = d;
+            bestX = tx;
+            bestY = ty;
+          }
+        }
+      }
+      if (bestDist < Infinity && r >= 3) break;
+    }
+
+    occupiedTiles.add(`${bestX},${bestY}`);
+    return { x: bestX, y: bestY };
+  };
+
+  // 1. Starac Goran (near spawn clearing)
+  const posGoran = findFreeDryTile(spawnX + 2, spawnY - 1, 'GRASS');
+  npcs.push({
+    ...NPC_VILLAGERS[0],
+    tileX: posGoran.x,
+    tileY: posGoran.y,
+    x: posGoran.x * TILE_SIZE + TILE_SIZE / 2,
+    y: posGoran.y * TILE_SIZE + TILE_SIZE / 2,
+  });
+
+  // 2. Ribar Mate (near southern/eastern shore)
+  const posMate = findFreeDryTile(spawnX - 3, spawnY + 2, 'SAND');
+  npcs.push({
+    ...NPC_VILLAGERS[1],
+    tileX: posMate.x,
+    tileY: posMate.y,
+    x: posMate.x * TILE_SIZE + TILE_SIZE / 2,
+    y: posMate.y * TILE_SIZE + TILE_SIZE / 2,
+  });
+
+  // 3. Travarica Mara (near forest/grove north-west)
+  const posMara = findFreeDryTile(spawnX - 4, spawnY - 4, 'FOREST_GRASS');
+  npcs.push({
+    ...NPC_VILLAGERS[2],
+    tileX: posMara.x,
+    tileY: posMara.y,
+    x: posMara.x * TILE_SIZE + TILE_SIZE / 2,
+    y: posMara.y * TILE_SIZE + TILE_SIZE / 2,
+  });
+
+  // Filter out any resource node that ended up on the same tile as an NPC
+  const cleanedResources = resources.filter((res) => !occupiedTiles.has(`${res.x},${res.y}`));
+
   // Initial player spawn position on the peaceful southern beach
   const initialPlayerPos = {
     x: spawnX * TILE_SIZE + TILE_SIZE / 2,
@@ -218,7 +294,8 @@ export function generateIslandMap(seed: number = 42): GameMap {
 
   return {
     tiles,
-    resources,
+    resources: cleanedResources,
     initialPlayerPos,
+    npcs,
   };
 }

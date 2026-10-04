@@ -25,11 +25,12 @@ import {
   GameSaveState,
   CharacterCustomization,
   PetState,
+  NPCEntity,
 } from './types';
 
 export class GameEngine {
   public worldId: string = 'world_default';
-  public worldName: string = 'Mirni Otok';
+  public worldName: string = 'Otok Magle';
   public seed: number = 42;
   public createdAt: number = Date.now();
   public character: CharacterCustomization;
@@ -45,6 +46,12 @@ export class GameEngine {
   public timeOfDay: number; // 0 to 1
   public gameTime: number; // seconds
   public camera: { x: number; y: number };
+
+  // Story & Secrets State
+  public targetNpc: NPCEntity | null = null;
+  public discoveredSecretIds: string[] = [];
+  public talkedToNpcIds: string[] = [];
+  public hasSeenIntro: boolean = false;
 
   public placementMode: {
     active: boolean;
@@ -64,6 +71,9 @@ export class GameEngine {
   // Callbacks for UI updates
   public onInventoryChange?: (inv: Inventory) => void;
   public onTargetNodeChange?: (node: ResourceNode | null) => void;
+  public onTargetNpcChange?: (npc: NPCEntity | null) => void;
+  public onOpenDialogue?: (npc: NPCEntity) => void;
+  public onSecretDiscovered?: (secretId: string) => void;
   public onTimeChange?: (timeOfDay: number) => void;
 
   private currentTargetNode: ResourceNode | null = null;
@@ -95,13 +105,16 @@ export class GameEngine {
       saved = loadGame();
     }
     if (!saved) {
-      saved = createNewWorld('Prvi Otok', 42);
+      saved = createNewWorld('Otok Magle', 42);
     }
 
     this.worldId = saved.worldId || 'world_' + Date.now();
-    this.worldName = saved.worldName || 'Mirni Otok';
+    this.worldName = saved.worldName || 'Otok Magle';
     this.seed = saved.seed || 42;
     this.createdAt = saved.createdAt || Date.now();
+    this.hasSeenIntro = saved.hasSeenIntro ?? false;
+    this.discoveredSecretIds = saved.discoveredSecretIds || [];
+    this.talkedToNpcIds = saved.talkedToNpcIds || [];
 
     this.map = generateIslandMap(this.seed);
     this.player = {
@@ -363,15 +376,63 @@ export class GameEngine {
         this.onTargetNodeChange(closestNode);
       }
     }
+
+    // Check nearby NPC for dialogue interaction
+    let closestNpc: NPCEntity | null = null;
+    let bestNpcDist = 65;
+    if (this.map.npcs) {
+      for (const npc of this.map.npcs) {
+        const dist = Math.hypot(this.player.x - npc.x, this.player.y - npc.y);
+        if (dist < bestNpcDist) {
+          bestNpcDist = dist;
+          closestNpc = npc;
+        }
+      }
+    }
+
+    if (this.targetNpc !== closestNpc) {
+      this.targetNpc = closestNpc;
+      if (this.onTargetNpcChange) {
+        this.onTargetNpcChange(closestNpc);
+      }
+    }
   }
 
-  // Action button pressed (harvest / collect)
+  public talkToNpc(npc: NPCEntity) {
+    soundSystem.unlock();
+    soundSystem.playClick();
+
+    if (!this.talkedToNpcIds.includes(npc.id)) {
+      this.talkedToNpcIds.push(npc.id);
+    }
+
+    if (npc.associatedSecretId && !this.discoveredSecretIds.includes(npc.associatedSecretId)) {
+      this.discoveredSecretIds.push(npc.associatedSecretId);
+      this.addFloatingText(npc.x, npc.y - 28, '📖 Zabilježeno u Dnevnik!', '#38bdf8');
+      if (this.onSecretDiscovered) {
+        this.onSecretDiscovered(npc.associatedSecretId);
+      }
+    }
+
+    if (this.onOpenDialogue) {
+      this.onOpenDialogue(npc);
+    }
+    this.persistSave();
+  }
+
+  // Action button pressed (talk to NPC / harvest / collect)
   public performAction(): boolean {
     soundSystem.unlock();
 
     // If in placement mode, confirm placement
     if (this.placementMode && this.placementMode.active) {
       return this.confirmPlacement();
+    }
+
+    // If standing near an NPC, talk to them!
+    if (this.targetNpc) {
+      this.talkToNpc(this.targetNpc);
+      return true;
     }
 
     if (!this.currentTargetNode || !this.currentTargetNode.available) {
@@ -791,6 +852,9 @@ export class GameEngine {
       placedBuildings: [...this.placedBuildings],
       harvestedNodeIds: harvested,
       timeOfDay: this.timeOfDay,
+      hasSeenIntro: this.hasSeenIntro,
+      discoveredSecretIds: [...this.discoveredSecretIds],
+      talkedToNpcIds: [...this.talkedToNpcIds],
     };
 
     saveWorld(data);
@@ -802,9 +866,12 @@ export class GameEngine {
     if (!saved) return;
 
     this.worldId = saved.worldId || targetWorldId;
-    this.worldName = saved.worldName || 'Mirni Otok';
+    this.worldName = saved.worldName || 'Otok Magle';
     this.seed = saved.seed || 42;
     this.createdAt = saved.createdAt || Date.now();
+    this.hasSeenIntro = saved.hasSeenIntro ?? true;
+    this.discoveredSecretIds = saved.discoveredSecretIds || [];
+    this.talkedToNpcIds = saved.talkedToNpcIds || [];
 
     if (saved.character) {
       this.character = { ...saved.character };
@@ -878,7 +945,11 @@ export class GameEngine {
     this.map = generateIslandMap(seed);
     this.seed = seed;
     this.worldId = 'world_' + Date.now();
+    this.worldName = 'Otok Magle';
     this.createdAt = Date.now();
+    this.hasSeenIntro = false;
+    this.discoveredSecretIds = [];
+    this.talkedToNpcIds = [];
 
     this.player = {
       x: this.map.initialPlayerPos.x,

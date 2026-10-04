@@ -79,7 +79,7 @@ export function saveWorld(state: GameSaveState): void {
 
     const meta: WorldMeta = {
       id: state.worldId,
-      name: state.worldName || 'Mirni Otok',
+      name: state.worldName || 'Otok Magle',
       seed: state.seed || 42,
       createdAt: state.createdAt || Date.now(),
       lastPlayedAt: state.lastPlayedAt,
@@ -160,7 +160,7 @@ export function createNewWorld(
   const newSave: GameSaveState = {
     version: 1,
     worldId,
-    worldName: name.trim() || 'Mirni Otok',
+    worldName: name.trim() || 'Otok Magle',
     seed,
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),

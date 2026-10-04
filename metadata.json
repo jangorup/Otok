@@ -1,6 +1,6 @@
 {
-  "name": "Otok",
-  "description": "",
+  "name": "Kletva Otoka",
+  "description": "Istražuj tajanstveno otočje pod drevnom kletvom morskih bičeva. Sakupljaj resurse, gradi sigurna utočišta, razgovaraj s otočanima i razotkrij tajne mora.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

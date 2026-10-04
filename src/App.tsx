@@ -8,18 +8,21 @@ import { GameEngine } from './game/engine';
 import { GameRenderer } from './game/renderer';
 import { soundSystem } from './game/audio';
 import { TILE_SIZE } from './game/constants';
-import { Inventory, ResourceNode, BuildingType } from './game/types';
+import { Inventory, ResourceNode, BuildingType, NPCEntity } from './game/types';
 import { OrientationLock } from './components/OrientationLock';
 import { TopBar } from './components/TopBar';
 import { VirtualJoystick } from './components/VirtualJoystick';
 import { ActionControls } from './components/ActionControls';
 import { BuildModal } from './components/BuildModal';
 import { SettingsModal } from './components/SettingsModal';
+import { StoryIntroModal } from './components/StoryIntroModal';
+import { JournalModal } from './components/JournalModal';
+import { DialogueModal } from './components/DialogueModal';
 import { Lobby } from './components/Lobby';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'LOBBY' | 'GAME'>('LOBBY');
-  const [worldName, setWorldName] = useState<string>('Mirni Otok');
+  const [worldName, setWorldName] = useState<string>('Otok Magle');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -36,15 +39,57 @@ export default function App() {
     sand: 0,
   });
   const [targetNode, setTargetNode] = useState<ResourceNode | null>(null);
+  const [targetNpc, setTargetNpc] = useState<NPCEntity | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<number>(0.25);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isBuildOpen, setIsBuildOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isIntroOpen, setIsIntroOpen] = useState<boolean>(false);
+  const [isJournalOpen, setIsJournalOpen] = useState<boolean>(false);
+  const [activeDialogueNpc, setActiveDialogueNpc] = useState<NPCEntity | null>(null);
+  const [discoveredSecretIds, setDiscoveredSecretIds] = useState<string[]>([]);
+  const [talkedToNpcIds, setTalkedToNpcIds] = useState<string[]>([]);
   const [placementModeState, setPlacementModeState] = useState<{
     active: boolean;
     buildingType: BuildingType;
     isValid: boolean;
   } | null>(null);
+
+  // Camera Zoom Level (defaulting to 1.55x for close, comfortable mobile experience)
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('kletva_otoka_zoom');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 0.8 && val <= 2.2) return val;
+      }
+    } catch {}
+    return 1.55;
+  });
+
+  const zoomLevelRef = useRef<number>(zoomLevel);
+  zoomLevelRef.current = zoomLevel;
+
+  const handleSetZoom = useCallback((zoom: number) => {
+    setZoomLevel(zoom);
+    try {
+      localStorage.setItem('kletva_otoka_zoom', zoom.toString());
+    } catch {}
+  }, []);
+
+  const handleCycleZoom = useCallback(() => {
+    setZoomLevel((prev) => {
+      let next = 1.55;
+      if (prev >= 1.7) next = 1.25;
+      else if (prev >= 1.5) next = 1.75;
+      else if (prev >= 1.2) next = 1.55;
+      else next = 1.55;
+      try {
+        localStorage.setItem('kletva_otoka_zoom', next.toString());
+      } catch {}
+      return next;
+    });
+  }, []);
 
   // Initialize Engine & Renderer
   useEffect(() => {
@@ -57,6 +102,12 @@ export default function App() {
     setInventory({ ...engine.inventory });
     setTimeOfDay(engine.timeOfDay);
     setWorldName(engine.worldName);
+    setDiscoveredSecretIds([...engine.discoveredSecretIds]);
+    setTalkedToNpcIds([...engine.talkedToNpcIds]);
+
+    if (!engine.hasSeenIntro) {
+      setIsIntroOpen(true);
+    }
 
     engine.onInventoryChange = (newInv) => {
       setInventory({ ...newInv });
@@ -64,6 +115,20 @@ export default function App() {
 
     engine.onTargetNodeChange = (node) => {
       setTargetNode(node);
+    };
+
+    engine.onTargetNpcChange = (npc) => {
+      setTargetNpc(npc);
+    };
+
+    engine.onOpenDialogue = (npc) => {
+      setActiveDialogueNpc(npc);
+      setTalkedToNpcIds([...engine.talkedToNpcIds]);
+      setDiscoveredSecretIds([...engine.discoveredSecretIds]);
+    };
+
+    engine.onSecretDiscovered = () => {
+      setDiscoveredSecretIds([...engine.discoveredSecretIds]);
     };
 
     engine.onTimeChange = (tod) => {
@@ -146,6 +211,7 @@ export default function App() {
           gameTime: engine.gameTime,
           placementMode: engine.placementMode,
           camera: engine.camera,
+          zoom: zoomLevelRef.current,
         });
       }
 
@@ -242,6 +308,11 @@ export default function App() {
       setWorldName(engine.worldName);
       setInventory({ ...engine.inventory });
       setTimeOfDay(engine.timeOfDay);
+      setDiscoveredSecretIds([...engine.discoveredSecretIds]);
+      setTalkedToNpcIds([...engine.talkedToNpcIds]);
+      if (!engine.hasSeenIntro) {
+        setIsIntroOpen(true);
+      }
     }
     setCurrentView('GAME');
   }, []);
@@ -306,7 +377,7 @@ export default function App() {
     soundSystem.setMute(newMuted);
   }, [isMuted]);
 
-  // Reset current world
+  // Reset current world / start new game
   const handleNewGame = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
@@ -314,7 +385,11 @@ export default function App() {
     setWorldName(engine.worldName);
     setInventory({ ...engine.inventory });
     setTargetNode(null);
+    setTargetNpc(null);
     setPlacementModeState(null);
+    setDiscoveredSecretIds([]);
+    setTalkedToNpcIds([]);
+    setIsIntroOpen(true);
   }, []);
 
   // Canvas Tap/Click Handler (to interact with nearby objects or set placement target)
@@ -329,13 +404,13 @@ export default function App() {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // Convert screen coordinates to world coordinates
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const canvasCenterX = canvas.width / (2 * dpr);
-    const canvasCenterY = canvas.height / (2 * dpr);
+    // Convert screen coordinates to world coordinates taking zoom into account
+    const canvasCenterX = rect.width / 2;
+    const canvasCenterY = rect.height / 2;
+    const currentZoom = zoomLevelRef.current || 1.55;
 
-    const worldX = engine.camera.x + (clickX - canvasCenterX);
-    const worldY = engine.camera.y + (clickY - canvasCenterY);
+    const worldX = engine.camera.x + (clickX - canvasCenterX) / currentZoom;
+    const worldY = engine.camera.y + (clickY - canvasCenterY) / currentZoom;
 
     const tileX = Math.floor(worldX / TILE_SIZE);
     const tileY = Math.floor(worldY / TILE_SIZE);
@@ -345,16 +420,27 @@ export default function App() {
       return;
     }
 
+    // Check if player clicked directly on an NPC (comfortable hit area on mobile)
+    if (engine.map.npcs) {
+      for (const npc of engine.map.npcs) {
+        const distToNpc = Math.hypot(worldX - npc.x, worldY - npc.y);
+        if (distToNpc < 40) {
+          engine.talkToNpc(npc);
+          return;
+        }
+      }
+    }
+
     // Check if player clicked directly on their pet
     const distToPet = Math.hypot(worldX - engine.pet.x, worldY - engine.pet.y);
-    if (distToPet < 28) {
+    if (distToPet < 35) {
       engine.petThePet();
       return;
     }
 
     // Check if player clicked directly on an adjacent resource
     const distToPlayer = Math.hypot(worldX - engine.player.x, worldY - engine.player.y);
-    if (distToPlayer < 75) {
+    if (distToPlayer < 85) {
       for (const res of engine.map.resources) {
         if (res.available && res.x === tileX && res.y === tileY) {
           engine.performAction();
@@ -388,13 +474,17 @@ export default function App() {
             className="block w-full h-full cursor-pointer touch-none"
           />
 
-          {/* Top HUD: Inventory, Time of Day, Mute & Settings */}
+          {/* Top HUD: Inventory, Time of Day, Journal, Mute & Settings */}
           <TopBar
             worldName={worldName}
             inventory={inventory}
             timeOfDay={timeOfDay}
             isMuted={isMuted}
+            secretsCount={discoveredSecretIds.length}
+            zoomLevel={zoomLevel}
+            onCycleZoom={handleCycleZoom}
             onToggleMute={handleToggleMute}
+            onOpenJournal={() => setIsJournalOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenLobby={handleOpenLobby}
           />
@@ -408,6 +498,7 @@ export default function App() {
           <div className="fixed bottom-3 right-3 z-20 pointer-events-auto">
             <ActionControls
               targetNode={targetNode}
+              targetNpc={targetNpc}
               placementMode={placementModeState}
               onAction={handleAction}
               onOpenBuild={() => setIsBuildOpen(true)}
@@ -428,10 +519,45 @@ export default function App() {
           <SettingsModal
             isOpen={isSettingsOpen}
             isMuted={isMuted}
+            zoomLevel={zoomLevel}
+            onSetZoom={handleSetZoom}
             onToggleMute={handleToggleMute}
             onNewGame={handleNewGame}
             onOpenLobby={handleOpenLobby}
+            onShowIntro={() => setIsIntroOpen(true)}
             onClose={() => setIsSettingsOpen(false)}
+          />
+
+          {/* Story Intro Screen (3-4 slides, shown on new game, with skip) */}
+          <StoryIntroModal
+            isOpen={isIntroOpen}
+            onComplete={() => {
+              if (engineRef.current) {
+                engineRef.current.hasSeenIntro = true;
+                engineRef.current.persistSave();
+              }
+              setIsIntroOpen(false);
+            }}
+          />
+
+          {/* Journal Panel (Current Goal & Discovered Secrets) */}
+          <JournalModal
+            isOpen={isJournalOpen}
+            discoveredSecretIds={discoveredSecretIds}
+            talkedToNpcCount={talkedToNpcIds.length}
+            totalNpcCount={engineRef.current?.map.npcs?.length ?? 3}
+            onClose={() => setIsJournalOpen(false)}
+          />
+
+          {/* NPC Dialogue Modal */}
+          <DialogueModal
+            npc={activeDialogueNpc}
+            hasUnlockedSecret={Boolean(
+              activeDialogueNpc?.associatedSecretId &&
+                discoveredSecretIds.includes(activeDialogueNpc.associatedSecretId)
+            )}
+            onOpenJournal={() => setIsJournalOpen(true)}
+            onClose={() => setActiveDialogueNpc(null)}
           />
         </>
       )}

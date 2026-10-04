@@ -9,6 +9,7 @@ import {
   BuildingType,
   CharacterCustomization,
   PetState,
+  NPCEntity,
 } from './types';
 
 export interface RenderContext {
@@ -36,6 +37,7 @@ export interface RenderContext {
     x: number;
     y: number;
   };
+  zoom?: number;
 }
 
 export class GameRenderer {
@@ -49,22 +51,36 @@ export class GameRenderer {
     ctx.fillStyle = '#0a1d33';
     ctx.fillRect(0, 0, width, height);
 
-    // Visible tile bounds (with padding for smooth seamless edges)
-    const leftTile = Math.max(0, Math.floor((camera.x - width / 2) / TILE_SIZE) - 2);
-    const rightTile = Math.min(MAP_WIDTH - 1, Math.ceil((camera.x + width / 2) / TILE_SIZE) + 2);
-    const topTile = Math.max(0, Math.floor((camera.y - height / 2) / TILE_SIZE) - 2);
-    const bottomTile = Math.min(MAP_HEIGHT - 1, Math.ceil((camera.y + height / 2) / TILE_SIZE) + 2);
+    // Device Pixel Ratio & camera zoom factor (closer view for mobile)
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const zoomFactor = rc.zoom || 1.5;
+    const scale = dpr * zoomFactor;
 
-    // Center camera on player
-    ctx.translate(Math.floor(width / 2 - camera.x), Math.floor(height / 2 - camera.y));
+    // Visible tile bounds in world units
+    const halfWorldW = width / (2 * scale);
+    const halfWorldH = height / (2 * scale);
 
-    // 1. Clean Natural Island Terrain (Cohesive Deep Blue Sea, Clean Beach Sand, Clean Grass)
+    const leftTile = Math.max(0, Math.floor((camera.x - halfWorldW) / TILE_SIZE) - 2);
+    const rightTile = Math.min(MAP_WIDTH - 1, Math.ceil((camera.x + halfWorldW) / TILE_SIZE) + 2);
+    const topTile = Math.max(0, Math.floor((camera.y - halfWorldH) / TILE_SIZE) - 2);
+    const bottomTile = Math.min(MAP_HEIGHT - 1, Math.ceil((camera.y + halfWorldH) / TILE_SIZE) + 2);
+
+    // Enter world space transformation
+    ctx.save();
+    ctx.translate(Math.floor(width / 2), Math.floor(height / 2));
+    ctx.scale(scale, scale);
+    ctx.translate(-camera.x, -camera.y);
+
+    // 1. Natural Island Terrain (Deeper mystical oceanic blue sea, weathered sand, mossy grass)
     this.renderNaturalTerrain(ctx, map, leftTile, rightTile, topTile, bottomTile, rc.revealedTiles);
 
-    // 2. Calm Water Ripples & Sea Life (No bright cyan, no foam strips on shoreline)
+    // 2. Calm Water Ripples & Sea Life
     this.renderWaterAndSeaLife(ctx, map, leftTile, rightTile, topTile, bottomTile, rc.gameTime, rc.revealedTiles);
 
-    // 3. Y-Sorted Entities (Resources, Buildings, Pet, Player)
+    // 3. Shoreline Mist (Coastal fog creeping gently over the water edges)
+    this.renderShorelineMist(ctx, map, leftTile, rightTile, topTile, bottomTile, rc.gameTime, rc.revealedTiles);
+
+    // 4. Y-Sorted Entities (Resources, Buildings, NPCs, Pet, Player)
     interface RenderEntity {
       yOrder: number;
       draw: () => void;
@@ -94,6 +110,21 @@ export class GameRenderer {
         });
       }
     });
+
+    // NPC Villagers (Starac Goran, Ribar Mate, Travarica Mara)
+    if (map.npcs) {
+      map.npcs.forEach((npc) => {
+        if (npc.tileX >= leftTile && npc.tileX <= rightTile && npc.tileY >= topTile && npc.tileY <= bottomTile) {
+          const isRevealed = rc.revealedTiles[npc.tileY] && rc.revealedTiles[npc.tileY][npc.tileX];
+          if (isRevealed) {
+            entities.push({
+              yOrder: npc.y + 14,
+              draw: () => this.renderNPC(ctx, npc, rc.gameTime, rc.player),
+            });
+          }
+        }
+      });
+    }
 
     // Pet Companion
     if (rc.pet) {
@@ -125,22 +156,29 @@ export class GameRenderer {
     entities.sort((a, b) => a.yOrder - b.yOrder);
     entities.forEach((e) => e.draw());
 
-    // 4. Particles & Smoke
+    // 6. Night Sea Whips (Magical whips rising periodically from the sea at night - visual only atmosphere)
+    this.renderNightSeaWhips(ctx, map, leftTile, rightTile, topTile, bottomTile, rc.gameTime, rc.timeOfDay, rc.revealedTiles);
+
+    // 7. Particles & Smoke
     this.renderParticles(ctx, rc.particles);
     this.renderSmokeParticles(ctx, rc.smokeParticles);
 
-    // 5. Ambient Atmospheric Breeze (Pink petals & golden fluff by day, serene clear night - NO fireflies)
+    // 8. Ambient Atmospheric Fluff
     this.renderAtmosphericFluff(ctx, rc, leftTile, rightTile, topTile, bottomTile);
 
-    // 6. Floating texts
+    // 9. Floating texts
     this.renderFloatingTexts(ctx, rc.floatingTexts);
 
-    // 7. Fog of War
+    // 10. Fog of War
     this.renderFogOfWar(ctx, rc, leftTile, rightTile, topTile, bottomTile);
 
-    // 8. Day / Sunset / Night ambient lighting tone & warm window light casts
+    // Exit world transform space
+    ctx.restore();
+
+    // 11. Day / Sunset / Night ambient lighting tone & atmospheric dark blue night tint
     this.renderAmbientLighting(ctx, rc);
 
+    // Exit outer canvas state
     ctx.restore();
   }
 
@@ -169,22 +207,21 @@ export class GameRenderer {
         const x = tx * TILE_SIZE;
         const y = ty * TILE_SIZE;
 
-        // Unified, elegant, calm deep blue water throughout
+        // Unified, elegant, calm deep blue water throughout with misty oceanic tone
         if (type === 'DEEP_WATER') {
-          ctx.fillStyle = '#0f2c4c';
+          ctx.fillStyle = '#091b30';
         } else if (type === 'WATER') {
-          ctx.fillStyle = '#143c66';
+          ctx.fillStyle = '#0e2644';
         } else if (type === 'SHALLOW_WATER') {
-          // Clean, calm, rich blue water - NO bright neon cyan band!
-          ctx.fillStyle = '#19497a';
+          ctx.fillStyle = '#133256';
         } else {
-          ctx.fillStyle = '#19497a';
+          ctx.fillStyle = '#133256';
         }
         ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
       }
     }
 
-    // Layer 2: Clean Golden Beach Sand (NO darker wet sand border, NO extra shoreline bands)
+    // Layer 2: Clean Weathered Beach Sand (NO darker wet sand border, NO extra shoreline bands)
     for (let ty = topTile; ty <= bottomTile; ty++) {
       for (let tx = leftTile; tx <= rightTile; tx++) {
         if (!revealedTiles[ty] || !revealedTiles[ty][tx]) continue;
@@ -203,8 +240,8 @@ export class GameRenderer {
           const radBottomRight = isWaterBelow || isWaterRight ? 16 : 0;
           const radBottomLeft = isWaterBelow || isWaterLeft ? 16 : 0;
 
-          // Clean, warm, sunlit golden sand directly meeting the water
-          ctx.fillStyle = '#f5dfa4';
+          // Clean, weathered, atmospheric coastal sand directly meeting the water
+          ctx.fillStyle = '#e5d4aa';
           ctx.beginPath();
           ctx.roundRect(x, y, TILE_SIZE, TILE_SIZE, [
             radTopLeft,
@@ -218,10 +255,10 @@ export class GameRenderer {
           if (type === 'SAND') {
             const seed = (tx * 17 + ty * 31) % 14;
             if (seed === 3) {
-              ctx.fillStyle = '#e5c482';
+              ctx.fillStyle = '#d4be8a';
               ctx.fillRect(x + 16, y + 20, 8, 2);
             } else if (seed === 7) {
-              ctx.fillStyle = '#c5a56d';
+              ctx.fillStyle = '#bfa571';
               ctx.beginPath();
               ctx.ellipse(x + 22, y + 24, 3, 2, 0.4, 0, Math.PI * 2);
               ctx.fill();
@@ -245,8 +282,8 @@ export class GameRenderer {
         const isGrassTile = type === 'GRASS' || type === 'FOREST_GRASS' || type === 'HILL_ROCK';
         if (isGrassTile) {
           const isForest = type === 'FOREST_GRASS';
-          const grassBase = isForest ? '#3d7732' : '#5ba53e';
-          const grassHighlight = isForest ? '#529743' : '#76c453';
+          const grassBase = isForest ? '#315d29' : '#4b853c';
+          const grassHighlight = isForest ? '#3f7335' : '#5f9d4e';
 
           const isSandAbove = ty > 0 && map.tiles[ty - 1][tx] === 'SAND';
           const isSandBelow = ty < MAP_HEIGHT - 1 && map.tiles[ty + 1][tx] === 'SAND';
@@ -1528,20 +1565,305 @@ export class GameRenderer {
       const progress = (t - 0.6) / 0.14;
       overlayColor = `rgba(249, 115, 22, ${0.22 * progress})`;
     } else if (t >= 0.74 && t < 0.94) {
-      overlayColor = 'rgba(15, 23, 42, 0.38)';
+      // Atmospheric dark blue tint at night for Kletva Otoka
+      overlayColor = 'rgba(10, 20, 52, 0.44)';
     } else {
       const progress = (t - 0.94) / 0.06;
-      overlayColor = `rgba(30, 27, 75, ${0.28 * (1 - progress)})`;
+      overlayColor = `rgba(18, 24, 60, ${0.34 * (1 - progress)})`;
     }
 
     if (overlayColor !== 'rgba(0, 0, 0, 0)') {
-      const left = rc.camera.x - rc.canvas.width / 2 - 120;
-      const top = rc.camera.y - rc.canvas.height / 2 - 120;
-      const w = rc.canvas.width + 240;
-      const h = rc.canvas.height + 240;
-
       ctx.fillStyle = overlayColor;
-      ctx.fillRect(left, top, w, h);
+      ctx.fillRect(0, 0, rc.canvas.width, rc.canvas.height);
+    }
+  }
+
+  // --- NPC VILLAGERS: VISUALS & PROXIMITY DIALOGUE INDICATOR ---
+  private renderNPC(
+    ctx: CanvasRenderingContext2D,
+    npc: NPCEntity,
+    gameTime: number,
+    player: PlayerState
+  ) {
+    const x = npc.x;
+    const y = npc.y;
+    const breath = Math.sin(gameTime * 2.8 + npc.tileX) * 1.5;
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 10, 10, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body by NPC identity
+    if (npc.id === 'npc_goran') {
+      // Starac Goran: Elder robe, long silver beard, walking staff with lantern
+      // Robe
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath();
+      ctx.roundRect(x - 6, y - 4 + breath, 12, 14, 3);
+      ctx.fill();
+
+      // Head & face
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(x, y - 10 + breath, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Long Silver Beard
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(x - 4, y - 9 + breath);
+      ctx.lineTo(x + 4, y - 9 + breath);
+      ctx.lineTo(x, y - 1 + breath);
+      ctx.closePath();
+      ctx.fill();
+
+      // Staff with warm glowing lantern in hand
+      ctx.strokeStyle = '#451a03';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 10);
+      ctx.lineTo(x + 8, y - 15 + breath);
+      ctx.stroke();
+
+      // Lantern
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(x + 8, y - 16 + breath, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (npc.id === 'npc_mate') {
+      // Ribar Mate: Sailor vest, roll-up pants, fisherman cap, fishing pole
+      // Pants
+      ctx.fillStyle = '#d4c5b9';
+      ctx.fillRect(x - 4, y + 3, 3.5, 7);
+      ctx.fillRect(x + 0.5, y + 3, 3.5, 7);
+
+      // Sailor Vest
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.roundRect(x - 6, y - 5 + breath, 12, 9, 2);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(x, y - 10 + breath, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Yellow Sou'wester Fisherman Cap
+      ctx.fillStyle = '#eab308';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 13 + breath, 6.5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x - 4, y - 16 + breath, 8, 4);
+
+      // Fishing Rod
+      ctx.strokeStyle = '#854d0e';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 5, y + 4);
+      ctx.lineTo(x - 14, y - 18 + breath);
+      ctx.stroke();
+    } else {
+      // Travarica Mara: Sage green hooded cape, botanical satchel
+      // Cloak
+      ctx.fillStyle = '#166534';
+      ctx.beginPath();
+      ctx.roundRect(x - 6, y - 4 + breath, 12, 14, 3);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(x, y - 10 + breath, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hood
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(x, y - 12 + breath, 6, Math.PI * 0.8, Math.PI * 2.2);
+      ctx.fill();
+
+      // Herbal Satchel with glowing violet flowers
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(x + 4, y + 2 + breath, 4, 4);
+      ctx.fillStyle = '#c084fc';
+      ctx.fillRect(x + 5, y + 1 + breath, 2, 2);
+    }
+
+    // Name badge above NPC
+    ctx.save();
+    ctx.font = '600 11px "Fredoka", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    const nameW = ctx.measureText(npc.name).width;
+    ctx.beginPath();
+    ctx.roundRect(x - nameW / 2 - 5, y - 27 + breath, nameW + 10, 14, 4);
+    ctx.fill();
+    ctx.fillStyle = npc.color;
+    ctx.fillText(npc.name, x, y - 16 + breath);
+    ctx.restore();
+
+    // Proximity "Talk" Indicator
+    const distToPlayer = Math.hypot(player.x - x, player.y - y);
+    if (distToPlayer < 68) {
+      const bubbleBob = Math.sin(gameTime * 4.5) * 2.5;
+      const by = y - 37 + breath + bubbleBob;
+
+      ctx.save();
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+
+      // Speech bubble background
+      ctx.fillStyle = '#f59e0b';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.roundRect(x - 22, by - 10, 44, 15, 6);
+      ctx.fill();
+
+      // Little tail
+      ctx.beginPath();
+      ctx.moveTo(x - 3, by + 5);
+      ctx.lineTo(x, by + 8);
+      ctx.lineTo(x + 3, by + 5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText('💬 Pričaj', x, by + 1);
+      ctx.restore();
+    }
+  }
+
+  // --- SHORELINE MIST (Gentle ethereal fog along the water boundaries) ---
+  private renderShorelineMist(
+    ctx: CanvasRenderingContext2D,
+    map: GameMap,
+    leftTile: number,
+    rightTile: number,
+    topTile: number,
+    bottomTile: number,
+    gameTime: number,
+    revealedTiles: boolean[][]
+  ) {
+    const isWater = (t: string) => t === 'DEEP_WATER' || t === 'WATER' || t === 'SHALLOW_WATER';
+
+    for (let ty = topTile; ty <= bottomTile; ty += 2) {
+      for (let tx = leftTile; tx <= rightTile; tx += 2) {
+        if (!revealedTiles[ty] || !revealedTiles[ty][tx]) continue;
+        const tile = map.tiles[ty][tx];
+
+        // Only draw mist near the coastline (shallow water or beach sand)
+        if (tile === 'SHALLOW_WATER' || tile === 'SAND') {
+          const mistSeed = (tx * 17 + ty * 41) % 9;
+          if (mistSeed === 2 || mistSeed === 5) {
+            const driftX = (gameTime * 6 + tx * 15) % 60 - 30;
+            const driftY = Math.sin(gameTime * 1.2 + ty) * 4;
+
+            const mx = tx * TILE_SIZE + 24 + driftX;
+            const my = ty * TILE_SIZE + 24 + driftY;
+
+            ctx.fillStyle = 'rgba(219, 234, 254, 0.08)';
+            ctx.beginPath();
+            ctx.ellipse(mx, my, 28, 12, 0.1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+  }
+
+  // --- NIGHT SEA WHIPS (Visual-only ethereal whips rising from the sea at night) ---
+  private renderNightSeaWhips(
+    ctx: CanvasRenderingContext2D,
+    map: GameMap,
+    leftTile: number,
+    rightTile: number,
+    topTile: number,
+    bottomTile: number,
+    gameTime: number,
+    timeOfDay: number,
+    revealedTiles: boolean[][]
+  ) {
+    // Only active during evening / night cycle
+    const isNight = timeOfDay > 0.68 && timeOfDay < 0.98;
+    if (!isNight) return;
+
+    // Smooth night intensity curve
+    const nightFactor = Math.sin(((timeOfDay - 0.68) / 0.3) * Math.PI);
+
+    const isWater = (t: string) => t === 'DEEP_WATER' || t === 'WATER';
+
+    for (let ty = topTile; ty <= bottomTile; ty++) {
+      for (let tx = leftTile; tx <= rightTile; tx++) {
+        if (!revealedTiles[ty] || !revealedTiles[ty][tx]) continue;
+        const tile = map.tiles[ty][tx];
+        if (!isWater(tile)) continue;
+
+        // Spread whips across deterministic spots on the sea
+        const spotHash = (tx * 37 + ty * 73) % 11;
+        if (spotHash === 3 || spotHash === 7) {
+          // Staggered timing for each spot
+          const whipCycle = (gameTime * 0.85 + tx * 0.9 + ty * 1.3) % 6.0;
+
+          // Whip appears for 2.2 seconds out of 6.0
+          if (whipCycle < 2.2) {
+            const progress = whipCycle / 2.2;
+            const riseProgress = Math.sin(progress * Math.PI); // 0 -> 1 -> 0
+            const whipHeight = riseProgress * (34 + (spotHash % 12));
+
+            const bx = tx * TILE_SIZE + 24 + ((spotHash * 5) % 14) - 7;
+            const by = ty * TILE_SIZE + 24 + ((spotHash * 7) % 14) - 7;
+
+            // 1. Water ripples at the surge point
+            ctx.save();
+            ctx.strokeStyle = `rgba(56, 189, 248, ${nightFactor * riseProgress * 0.45})`;
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.ellipse(bx, by, 12 * (1 + progress * 0.4), 6 * (1 + progress * 0.4), 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 2. Curving magical whip line
+            const wave1 = Math.sin(gameTime * 4.5 + tx) * (14 * riseProgress);
+            const wave2 = Math.cos(gameTime * 5.2 + ty) * (18 * riseProgress);
+
+            const tipX = bx + wave1;
+            const tipY = by - whipHeight;
+            const cp1X = bx + Math.sin(gameTime * 3.5) * 8;
+            const cp1Y = by - whipHeight * 0.45;
+            const cp2X = bx + wave2;
+            const cp2Y = by - whipHeight * 0.8;
+
+            // Outer ethereal violet glow
+            ctx.strokeStyle = `rgba(168, 85, 247, ${nightFactor * riseProgress * 0.65})`;
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, tipX, tipY);
+            ctx.stroke();
+
+            // Inner electric cyan core
+            ctx.strokeStyle = `rgba(56, 189, 248, ${nightFactor * riseProgress * 0.95})`;
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, tipX, tipY);
+            ctx.stroke();
+
+            // Tip spark
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(tipX, tipY, 2.2 * riseProgress, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
     }
   }
 }

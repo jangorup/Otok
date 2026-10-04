@@ -1,10 +1,11 @@
 import React from 'react';
-import { Hammer, Check, X, Axe, Pickaxe, Hand, Sparkles, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ResourceNode, BuildingType } from '../game/types';
+import { Hammer, Check, X, Axe, Pickaxe, Hand, Sparkles, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { ResourceNode, BuildingType, NPCEntity } from '../game/types';
 import { RESOURCE_INFO, BUILDINGS } from '../game/constants';
 
 interface ActionControlsProps {
   targetNode: ResourceNode | null;
+  targetNpc?: NPCEntity | null;
   placementMode: {
     active: boolean;
     buildingType: BuildingType;
@@ -18,6 +19,7 @@ interface ActionControlsProps {
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
   targetNode,
+  targetNpc,
   placementMode,
   onAction,
   onOpenBuild,
@@ -37,6 +39,10 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     actionBg = placementMode.isValid
       ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white shadow-emerald-500/30'
       : 'bg-slate-700/80 text-slate-400 cursor-not-allowed';
+  } else if (targetNpc) {
+    actionLabel = 'Pričaj';
+    ActionIcon = MessageSquare;
+    actionBg = 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-cyan-400/40 ring-2 ring-cyan-300/50';
   } else if (targetNode && targetNode.available) {
     const info = RESOURCE_INFO[targetNode.type];
     actionLabel = info.toolAction;
