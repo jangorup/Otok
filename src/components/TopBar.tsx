@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Settings, Sun, Moon, Sunrise, Sunset, Home, BookOpen, ZoomIn } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Sun, Moon, Sunrise, Sunset, Home, BookOpen } from 'lucide-react';
 import { Inventory } from '../game/types';
 
 interface TopBarProps {
@@ -11,9 +11,10 @@ interface TopBarProps {
   onOpenSettings: () => void;
   onOpenLobby: () => void;
   onOpenJournal: () => void;
+  onOpenCrafting?: () => void;
   secretsCount?: number;
-  zoomLevel?: number;
-  onCycleZoom?: () => void;
+  totalItems?: number;
+  maxCapacity?: number;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -25,9 +26,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenSettings,
   onOpenLobby,
   onOpenJournal,
+  onOpenCrafting,
   secretsCount = 0,
-  zoomLevel = 1.55,
-  onCycleZoom,
+  totalItems = 0,
+  maxCapacity = 16,
 }) => {
   // Determine time label and icon
   let timeLabel = 'Dan';
@@ -52,6 +54,9 @@ export const TopBar: React.FC<TopBarProps> = ({
     timeColor = 'text-indigo-300';
   }
 
+  const isNearFull = totalItems >= maxCapacity - 2;
+  const isFull = totalItems >= maxCapacity;
+
   return (
     <header className="fixed top-2 left-2 right-2 z-20 flex items-center justify-between pointer-events-none select-none">
       {/* Left side: Island wordmark & Time of Day */}
@@ -66,61 +71,113 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Middle: Compact inventory bar with counts and custom resource icons */}
-      <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto bg-slate-900/75 backdrop-blur-xs px-3 py-1.5 rounded-full border border-white/20 shadow-lg">
+      {/* Middle: Compact inventory bar with counts, twigs, pebbles, capacity & tool badges */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 pointer-events-auto bg-slate-900/80 backdrop-blur-xs px-3 py-1.5 rounded-full border border-white/20 shadow-lg text-xs overflow-x-auto max-w-[50vw]">
+        {/* Capacity indicator */}
+        <div
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums transition-colors ${
+            isFull
+              ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'
+              : isNearFull
+              ? 'bg-amber-950 text-amber-300 border border-amber-800'
+              : 'bg-slate-800 text-slate-300 border border-slate-700'
+          }`}
+          title={`Zauzetost ruksaka: ${totalItems} od ${maxCapacity} predmeta`}
+        >
+          <span>🎒</span>
+          <span>
+            {totalItems}/{maxCapacity}
+          </span>
+        </div>
+
+        {/* Grančice / Twigs */}
+        <div className="flex items-center gap-1" title="Male grančice">
+          <span className="text-xs">🪵</span>
+          <span className="font-semibold tabular-nums text-amber-300">
+            {inventory.twigs || 0}
+          </span>
+        </div>
+
+        {/* Kamenčići / Pebbles */}
+        <div className="flex items-center gap-1" title="Mali kamenčići">
+          <span className="text-xs">🪨</span>
+          <span className="font-semibold tabular-nums text-slate-300">
+            {inventory.pebbles || 0}
+          </span>
+        </div>
+
         {/* Wood / Drvo */}
-        <div className="flex items-center gap-1.5" title="Drvo">
-          <div className="w-4 h-4 rounded-sm bg-[#8b5a2b] flex items-center justify-center text-[10px] text-amber-200 font-bold border border-amber-900/40">
-            🪵
-          </div>
-          <span className="font-semibold text-xs tabular-nums text-slate-100">
+        <div className="flex items-center gap-1" title="Drvo">
+          <span className="text-xs">🌲</span>
+          <span className="font-semibold tabular-nums text-slate-200">
             {inventory.wood}
           </span>
         </div>
 
         {/* Stone / Kamen */}
-        <div className="flex items-center gap-1.5" title="Kamen">
-          <div className="w-4 h-4 rounded-sm bg-[#64748b] flex items-center justify-center text-[10px] text-slate-200 font-bold border border-slate-700">
-            🪨
-          </div>
-          <span className="font-semibold text-xs tabular-nums text-slate-100">
+        <div className="flex items-center gap-1" title="Kamen">
+          <span className="text-xs">⛰️</span>
+          <span className="font-semibold tabular-nums text-slate-200">
             {inventory.stone}
           </span>
         </div>
 
         {/* Fibre / Vlakna */}
-        <div className="flex items-center gap-1.5" title="Vlakna">
-          <div className="w-4 h-4 rounded-sm bg-[#15803d] flex items-center justify-center text-[10px] text-emerald-200 font-bold border border-emerald-900">
-            🌿
-          </div>
-          <span className="font-semibold text-xs tabular-nums text-slate-100">
+        <div className="flex items-center gap-1" title="Vlakna">
+          <span className="text-xs">🌿</span>
+          <span className="font-semibold tabular-nums text-emerald-300">
             {inventory.fibre}
           </span>
         </div>
 
         {/* Shells / Školjke */}
-        <div className="flex items-center gap-1.5" title="Školjke">
-          <div className="w-4 h-4 rounded-sm bg-[#f472b6] flex items-center justify-center text-[10px] text-pink-950 font-bold border border-pink-400">
-            🐚
-          </div>
-          <span className="font-semibold text-xs tabular-nums text-slate-100">
+        <div className="flex items-center gap-1" title="Školjke">
+          <span className="text-xs">🐚</span>
+          <span className="font-semibold tabular-nums text-pink-300">
             {inventory.shells}
           </span>
         </div>
 
         {/* Sand / Pijesak */}
-        <div className="flex items-center gap-1.5" title="Pijesak">
-          <div className="w-4 h-4 rounded-sm bg-[#f59e0b] flex items-center justify-center text-[10px] text-amber-950 font-bold border border-amber-300">
-            ⏳
-          </div>
-          <span className="font-semibold text-xs tabular-nums text-slate-100">
+        <div className="flex items-center gap-1" title="Pijesak">
+          <span className="text-xs">⏳</span>
+          <span className="font-semibold tabular-nums text-amber-300">
             {inventory.sand}
           </span>
         </div>
+
+        {/* Tools Badges */}
+        {(inventory.hasAxe || inventory.hasPickaxe) && (
+          <div className="flex items-center gap-1 pl-1 border-l border-white/15">
+            {inventory.hasAxe && (
+              <span className="text-xs" title="Kamena sjekira izrađena!">
+                🪓
+              </span>
+            )}
+            {inventory.hasPickaxe && (
+              <span className="text-xs" title="Kameni kramp izrađen!">
+                ⛏️
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Right side: Journal, Lobby, Mute & Settings buttons */}
+      {/* Right side: Obrtnički panj, Journal, Lobby, Mute & Settings buttons */}
       <div className="flex items-center gap-1.5 pointer-events-auto">
+        {onOpenCrafting && (
+          <button
+            type="button"
+            onClick={onOpenCrafting}
+            aria-label="Obrtnički panj"
+            title="Otvori Obrtnički panj za izradu alata"
+            className="h-8 px-2.5 rounded-full bg-amber-950/70 hover:bg-amber-900/80 text-amber-300 flex items-center gap-1.5 backdrop-blur-xs border border-amber-500/40 shadow-md active:scale-95 transition-all text-xs font-semibold"
+          >
+            <span className="text-xs">🔨</span>
+            <span className="hidden sm:inline">Panj</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onOpenJournal}
@@ -147,21 +204,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           <Home className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Predvorje</span>
         </button>
-
-        {onCycleZoom && (
-          <button
-            type="button"
-            onClick={onCycleZoom}
-            aria-label="Zum kamere"
-            title={`Udaljenost kamere: ${zoomLevel}x (dodirni za promjenu)`}
-            className="h-8 px-2 rounded-full bg-slate-900/70 hover:bg-slate-800 text-cyan-300 flex items-center gap-1 backdrop-blur-xs border border-cyan-500/30 shadow-md active:scale-95 transition-all text-xs"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-            <span className="font-semibold text-[11px] tabular-nums text-slate-200">
-              {zoomLevel}x
-            </span>
-          </button>
-        )}
 
         <button
           type="button"

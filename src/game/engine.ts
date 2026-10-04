@@ -9,6 +9,7 @@ import {
   BUILDINGS,
   RESOURCE_INFO,
   DEFAULT_CHARACTER,
+  DEFAULT_MAX_INVENTORY_CAPACITY,
 } from './constants';
 import { generateIslandMap, GameMap } from './mapGenerator';
 import { soundSystem } from './audio';
@@ -26,6 +27,7 @@ import {
   CharacterCustomization,
   PetState,
   NPCEntity,
+  CraftingStationEntity,
 } from './types';
 
 export class GameEngine {
@@ -49,6 +51,7 @@ export class GameEngine {
 
   // Story & Secrets State
   public targetNpc: NPCEntity | null = null;
+  public targetStation: CraftingStationEntity | null = null;
   public discoveredSecretIds: string[] = [];
   public talkedToNpcIds: string[] = [];
   public hasSeenIntro: boolean = false;
@@ -72,19 +75,39 @@ export class GameEngine {
   public onInventoryChange?: (inv: Inventory) => void;
   public onTargetNodeChange?: (node: ResourceNode | null) => void;
   public onTargetNpcChange?: (npc: NPCEntity | null) => void;
+  public onTargetStationChange?: (station: CraftingStationEntity | null) => void;
   public onOpenDialogue?: (npc: NPCEntity) => void;
+  public onOpenCrafting?: () => void;
   public onSecretDiscovered?: (secretId: string) => void;
   public onTimeChange?: (timeOfDay: number) => void;
 
   private currentTargetNode: ResourceNode | null = null;
 
+  public getTotalInventoryCount(): number {
+    return (
+      (this.inventory.twigs || 0) +
+      (this.inventory.pebbles || 0) +
+      (this.inventory.wood || 0) +
+      (this.inventory.stone || 0) +
+      (this.inventory.fibre || 0) +
+      (this.inventory.shells || 0) +
+      (this.inventory.sand || 0)
+    );
+  }
+
   constructor(targetWorldId?: string) {
     this.inventory = {
+      twigs: 0,
+      pebbles: 0,
       wood: 0,
       stone: 0,
       fibre: 0,
       shells: 0,
       sand: 0,
+      hasAxe: false,
+      hasPickaxe: false,
+      hasBag: false,
+      maxCapacity: DEFAULT_MAX_INVENTORY_CAPACITY,
     };
     this.revealedTiles = Array.from({ length: MAP_HEIGHT }, () =>
       Array.from({ length: MAP_WIDTH }, () => false)
@@ -128,7 +151,19 @@ export class GameEngine {
     };
     this.camera = { x: this.player.x, y: this.player.y };
 
-    this.inventory = { ...saved.inventory };
+    this.inventory = {
+      twigs: saved.inventory?.twigs || 0,
+      pebbles: saved.inventory?.pebbles || 0,
+      wood: saved.inventory?.wood || 0,
+      stone: saved.inventory?.stone || 0,
+      fibre: saved.inventory?.fibre || 0,
+      shells: saved.inventory?.shells || 0,
+      sand: saved.inventory?.sand || 0,
+      hasAxe: Boolean(saved.inventory?.hasAxe),
+      hasPickaxe: Boolean(saved.inventory?.hasPickaxe),
+      hasBag: Boolean(saved.inventory?.hasBag),
+      maxCapacity: saved.inventory?.maxCapacity || (saved.inventory?.hasBag ? 20 : DEFAULT_MAX_INVENTORY_CAPACITY),
+    };
     if (saved.revealedTiles && saved.revealedTiles.length === MAP_HEIGHT) {
       this.revealedTiles = saved.revealedTiles;
     }
@@ -396,6 +431,23 @@ export class GameEngine {
         this.onTargetNpcChange(closestNpc);
       }
     }
+
+    // Check nearby Crafting Station (Obrtnički panj)
+    let closestStation: CraftingStationEntity | null = null;
+    if (this.map.craftingStation) {
+      const st = this.map.craftingStation;
+      const dist = Math.hypot(this.player.x - st.x, this.player.y - st.y);
+      if (dist < 68) {
+        closestStation = st;
+      }
+    }
+
+    if (this.targetStation !== closestStation) {
+      this.targetStation = closestStation;
+      if (this.onTargetStationChange) {
+        this.onTargetStationChange(closestStation);
+      }
+    }
   }
 
   public talkToNpc(npc: NPCEntity) {
@@ -420,13 +472,72 @@ export class GameEngine {
     this.persistSave();
   }
 
-  // Action button pressed (talk to NPC / harvest / collect)
+  // Crafting at "Obrtnički panj"
+  public craftItem(recipe: 'AXE' | 'PICKAXE' | 'BAG'): boolean {
+    soundSystem.unlock();
+
+    if (recipe === 'AXE') {
+      if ((this.inventory.twigs || 0) < 4 || (this.inventory.pebbles || 0) < 3) {
+        soundSystem.playWarning();
+        this.addFloatingText(this.player.x, this.player.y - 28, 'Nedovoljno grančica/kamenčića!', '#f59e0b');
+        return false;
+      }
+      this.inventory.twigs -= 4;
+      this.inventory.pebbles -= 3;
+      this.inventory.hasAxe = true;
+      soundSystem.playCraft();
+      this.addFloatingText(this.player.x, this.player.y - 30, '🪓 Izrađena Kamena sjekira!', '#22c55e');
+      this.spawnParticles(this.player.x, this.player.y - 8, '#f59e0b', 12);
+    } else if (recipe === 'PICKAXE') {
+      if ((this.inventory.twigs || 0) < 4 || (this.inventory.pebbles || 0) < 4) {
+        soundSystem.playWarning();
+        this.addFloatingText(this.player.x, this.player.y - 28, 'Nedovoljno grančica/kamenčića!', '#f59e0b');
+        return false;
+      }
+      this.inventory.twigs -= 4;
+      this.inventory.pebbles -= 4;
+      this.inventory.hasPickaxe = true;
+      soundSystem.playCraft();
+      this.addFloatingText(this.player.x, this.player.y - 30, '⛏️ Izrađen Kameni kramp!', '#22c55e');
+      this.spawnParticles(this.player.x, this.player.y - 8, '#38bdf8', 12);
+    } else if (recipe === 'BAG') {
+      if (this.inventory.fibre < 5 || (this.inventory.twigs || 0) < 3) {
+        soundSystem.playWarning();
+        this.addFloatingText(this.player.x, this.player.y - 28, 'Nedovoljno vlakana/grančica!', '#f59e0b');
+        return false;
+      }
+      this.inventory.fibre -= 5;
+      this.inventory.twigs -= 3;
+      this.inventory.hasBag = true;
+      this.inventory.maxCapacity = 20;
+      soundSystem.playCraft();
+      this.addFloatingText(this.player.x, this.player.y - 30, '🎒 Izrađena Pletena torba (+4 prostora)!', '#a855f7');
+      this.spawnParticles(this.player.x, this.player.y - 8, '#c084fc', 12);
+    }
+
+    if (this.onInventoryChange) {
+      this.onInventoryChange({ ...this.inventory });
+    }
+    this.persistSave();
+    return true;
+  }
+
+  // Action button pressed (crafting / talk to NPC / harvest / collect)
   public performAction(): boolean {
     soundSystem.unlock();
 
     // If in placement mode, confirm placement
     if (this.placementMode && this.placementMode.active) {
       return this.confirmPlacement();
+    }
+
+    // If near the crafting station, open crafting modal
+    if (this.targetStation) {
+      soundSystem.playClick();
+      if (this.onOpenCrafting) {
+        this.onOpenCrafting();
+      }
+      return true;
     }
 
     // If standing near an NPC, talk to them!
@@ -448,15 +559,54 @@ export class GameEngine {
     }
 
     const node = this.currentTargetNode;
+    const resX = node.x * TILE_SIZE + TILE_SIZE / 2;
+    const resY = node.y * TILE_SIZE + TILE_SIZE / 2;
+
+    // Check Tool Requirements: Big Trees require Axe, Big Rocks require Pickaxe
+    if (node.type === 'WOOD' && !this.inventory.hasAxe) {
+      soundSystem.playWarning();
+      this.player.actionTimer = 0.5;
+      this.addFloatingText(resX, resY - 20, '🪓 Potrebna je sjekira!', '#f59e0b');
+      return false;
+    }
+
+    if (node.type === 'STONE' && !this.inventory.hasPickaxe) {
+      soundSystem.playWarning();
+      this.player.actionTimer = 0.5;
+      this.addFloatingText(resX, resY - 20, '⛏️ Potreban je kramp!', '#f59e0b');
+      return false;
+    }
+
+    // Check Inventory Capacity: "nemoj da ima puno mjesta"
+    const maxCap = this.inventory.maxCapacity || DEFAULT_MAX_INVENTORY_CAPACITY;
+    if (this.getTotalInventoryCount() >= maxCap) {
+      soundSystem.playWarning();
+      this.player.actionTimer = 0.5;
+      this.addFloatingText(resX, resY - 20, `🎒 Inventar je pun! (${maxCap}/${maxCap})`, '#ef4444');
+      return false;
+    }
+
     this.player.actionTimer = 1.0;
     this.player.actionType = node.type;
 
     // Play appropriate sound & update inventory
     const info = RESOURCE_INFO[node.type];
-    const resX = node.x * TILE_SIZE + TILE_SIZE / 2;
-    const resY = node.y * TILE_SIZE + TILE_SIZE / 2;
 
     switch (node.type) {
+      case 'TWIGS':
+        soundSystem.playPickup();
+        this.inventory.twigs = (this.inventory.twigs || 0) + 1;
+        this.spawnParticles(resX, resY, '#d97706', 6);
+        this.spawnParticles(resX, resY, '#78350f', 4);
+        break;
+
+      case 'PEBBLES':
+        soundSystem.playPickup();
+        this.inventory.pebbles = (this.inventory.pebbles || 0) + 1;
+        this.spawnParticles(resX, resY, '#94a3b8', 6);
+        this.spawnParticles(resX, resY, '#cbd5e1', 4);
+        break;
+
       case 'WOOD':
         soundSystem.playChop();
         this.inventory.wood += 1;
@@ -896,7 +1046,19 @@ export class GameEngine {
     this.pet.happyTimer = 0;
 
     this.camera = { x: this.player.x, y: this.player.y };
-    this.inventory = { ...saved.inventory };
+    this.inventory = {
+      twigs: saved.inventory?.twigs || 0,
+      pebbles: saved.inventory?.pebbles || 0,
+      wood: saved.inventory?.wood || 0,
+      stone: saved.inventory?.stone || 0,
+      fibre: saved.inventory?.fibre || 0,
+      shells: saved.inventory?.shells || 0,
+      sand: saved.inventory?.sand || 0,
+      hasAxe: Boolean(saved.inventory?.hasAxe),
+      hasPickaxe: Boolean(saved.inventory?.hasPickaxe),
+      hasBag: Boolean(saved.inventory?.hasBag),
+      maxCapacity: saved.inventory?.maxCapacity || (saved.inventory?.hasBag ? 20 : DEFAULT_MAX_INVENTORY_CAPACITY),
+    };
     this.revealedTiles = saved.revealedTiles || Array.from({ length: MAP_HEIGHT }, () => Array.from({ length: MAP_WIDTH }, () => false));
     this.placedBuildings = saved.placedBuildings || [];
     this.floatingTexts = [];
@@ -961,11 +1123,17 @@ export class GameEngine {
       actionTimer: 0,
     };
     this.inventory = {
+      twigs: 0,
+      pebbles: 0,
       wood: 0,
       stone: 0,
       fibre: 0,
       shells: 0,
       sand: 0,
+      hasAxe: false,
+      hasPickaxe: false,
+      hasBag: false,
+      maxCapacity: DEFAULT_MAX_INVENTORY_CAPACITY,
     };
     this.revealedTiles = Array.from({ length: MAP_HEIGHT }, () =>
       Array.from({ length: MAP_WIDTH }, () => false)

@@ -1,4 +1,4 @@
-import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, BUILDINGS } from './constants';
+import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, BUILDINGS, CAMERA_ZOOM } from './constants';
 import { GameMap } from './mapGenerator';
 import {
   PlayerState,
@@ -10,6 +10,7 @@ import {
   CharacterCustomization,
   PetState,
   NPCEntity,
+  CraftingStationEntity,
 } from './types';
 
 export interface RenderContext {
@@ -51,9 +52,9 @@ export class GameRenderer {
     ctx.fillStyle = '#0a1d33';
     ctx.fillRect(0, 0, width, height);
 
-    // Device Pixel Ratio & camera zoom factor (closer view for mobile)
+    // Device Pixel Ratio & camera zoom factor (fixed at 1.25x)
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const zoomFactor = rc.zoom || 1.5;
+    const zoomFactor = rc.zoom ?? CAMERA_ZOOM;
     const scale = dpr * zoomFactor;
 
     // Visible tile bounds in world units
@@ -124,6 +125,20 @@ export class GameRenderer {
           }
         }
       });
+    }
+
+    // Crafting Station (Obrtnički panj)
+    if (map.craftingStation) {
+      const st = map.craftingStation;
+      if (st.tileX >= leftTile && st.tileX <= rightTile && st.tileY >= topTile && st.tileY <= bottomTile) {
+        const isRevealed = rc.revealedTiles[st.tileY] && rc.revealedTiles[st.tileY][st.tileX];
+        if (isRevealed) {
+          entities.push({
+            yOrder: st.y + 10,
+            draw: () => this.renderCraftingStation(ctx, st, rc.gameTime, rc.player),
+          });
+        }
+      }
     }
 
     // Pet Companion
@@ -775,6 +790,186 @@ export class GameRenderer {
         ctx.fill();
         break;
       }
+
+      case 'TWIGS': {
+        // Small dry fallen branches / twigs on the ground (can be picked up by hand)
+        ctx.fillStyle = 'rgba(20, 15, 10, 0.22)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 5, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Main branch
+        ctx.strokeStyle = '#5c3a21';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx - 7, cy + 4);
+        ctx.quadraticCurveTo(cx - 1, cy + 1, cx + 7, cy + 3);
+        ctx.stroke();
+
+        // Cross branch
+        ctx.strokeStyle = '#784628';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy + 6);
+        ctx.lineTo(cx + 4, cy - 2);
+        ctx.stroke();
+
+        // Small fork twig
+        ctx.strokeStyle = '#9a5e38';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx + 2, cy);
+        ctx.lineTo(cx + 6, cy - 4);
+        ctx.stroke();
+
+        // Tiny green bud or lichen spec
+        ctx.fillStyle = '#65a30d';
+        ctx.beginPath();
+        ctx.arc(cx - 2, cy + 1, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+
+      case 'PEBBLES': {
+        // Cluster of smooth small karst pebbles on the ground (can be picked up by hand)
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 5, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pebble 1 (left)
+        ctx.fillStyle = '#64748b';
+        ctx.beginPath();
+        ctx.ellipse(cx - 4, cy + 3, 4.5, 3.2, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.ellipse(cx - 5, cy + 2, 3, 2, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pebble 2 (center, larger)
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.ellipse(cx + 2, cy + 2, 5.5, 3.8, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.ellipse(cx + 1, cy + 1, 4, 2.4, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pebble 3 (tiny top-right)
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.ellipse(cx + 5, cy - 2, 3, 2.2, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(cx + 4, cy - 3, 1.5, 1.5);
+        break;
+      }
+    }
+  }
+
+  // --- CRAFTING STATION ("Obrtnički panj") ---
+  private renderCraftingStation(
+    ctx: CanvasRenderingContext2D,
+    station: CraftingStationEntity,
+    gameTime: number,
+    player: PlayerState
+  ) {
+    const cx = station.x;
+    const cy = station.y;
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 14, 20, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Large carved tree stump (Panj)
+    ctx.fillStyle = '#452310';
+    ctx.beginPath();
+    ctx.roundRect(cx - 16, cy - 6, 32, 22, [4, 4, 8, 8]);
+    ctx.fill();
+
+    // Wood bark vertical texture
+    ctx.strokeStyle = '#2e1407';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, cy - 4);
+    ctx.lineTo(cx - 10, cy + 12);
+    ctx.moveTo(cx, cy - 4);
+    ctx.lineTo(cx, cy + 14);
+    ctx.moveTo(cx + 9, cy - 4);
+    ctx.lineTo(cx + 9, cy + 12);
+    ctx.stroke();
+
+    // Stump top cross-section (growth rings)
+    ctx.fillStyle = '#784628';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 6, 16, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#5c331a';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 6, 11, 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 6, 6, 2.8, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Embedded stone anvil / grinding slab on top
+    ctx.fillStyle = '#334155';
+    ctx.beginPath();
+    ctx.roundRect(cx - 8, cy - 11, 16, 8, 2);
+    ctx.fill();
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(cx - 7, cy - 11, 14, 3);
+
+    // Carved tools resting on the stump (stone chisel & mallet)
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 11, cy - 4);
+    ctx.lineTo(cx - 4, cy - 9);
+    ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(cx - 6, cy - 11, 4, 5);
+
+    // Wood shavings on ground
+    ctx.fillStyle = '#d97706';
+    ctx.fillRect(cx + 8, cy + 10, 2.5, 1.5);
+    ctx.fillRect(cx - 12, cy + 8, 2, 1.5);
+    ctx.fillRect(cx + 12, cy + 6, 3, 1.5);
+
+    // If player is nearby, draw helpful hover indicator
+    const dist = Math.hypot(player.x - cx, player.y - cy);
+    if (dist < 68) {
+      const bob = Math.sin(gameTime * 4) * 2;
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      const text = '🔨 Obrtnički panj';
+      const textW = ctx.measureText(text).width;
+      const badgeW = textW + 14;
+      const badgeH = 20;
+      const badgeX = cx - badgeW / 2;
+      const badgeY = cy - 28 + bob;
+
+      // Glow pill
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, cx, badgeY + badgeH / 2);
+      ctx.restore();
     }
   }
 

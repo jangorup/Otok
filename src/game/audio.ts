@@ -334,6 +334,86 @@ class SoundSystem {
     osc.stop(now + 0.07);
   }
 
+  // SFX: Crafting item at crafting stump
+  public playCraft() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+    // Anvil strike + cheerful rising chime
+    const strike = this.ctx.createOscillator();
+    const strikeGain = this.ctx.createGain();
+    strike.type = 'triangle';
+    strike.frequency.setValueAtTime(420, now);
+    strike.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+    strikeGain.gain.setValueAtTime(0.2, now);
+    strikeGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+    strike.connect(strikeGain);
+    strikeGain.connect(this.sfxGain);
+    strike.start(now);
+    strike.stop(now + 0.13);
+
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+      if (!this.ctx || !this.sfxGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + 0.08 + idx * 0.07);
+      gain.gain.setValueAtTime(0.12, now + 0.08 + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08 + idx * 0.07 + 0.18);
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(now + 0.08 + idx * 0.07);
+      osc.stop(now + 0.08 + idx * 0.07 + 0.2);
+    });
+  }
+
+  // SFX: Warning (Missing tool / Inventory full)
+  public playWarning() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.setValueAtTime(150, now + 0.08);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.17);
+  }
+
+  // SFX: Quick twig/pebble pickup
+  public playPickup() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600 + Math.random() * 80, now);
+    osc.frequency.exponentialRampToValueAtTime(840, now + 0.06);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
   // SFX: Subtle footstep
   public playFootstep() {
     this.initContext();

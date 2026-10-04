@@ -8,7 +8,7 @@ export type TileType =
   | 'HILL_ROCK' 
   | 'PATH';
 
-export type ResourceType = 'WOOD' | 'STONE' | 'FIBRE' | 'SHELL' | 'SAND_PILE';
+export type ResourceType = 'WOOD' | 'STONE' | 'FIBRE' | 'SHELL' | 'SAND_PILE' | 'TWIGS' | 'PEBBLES';
 
 export interface ResourceNode {
   id: string;
@@ -23,6 +23,8 @@ export interface ResourceNode {
 export type BuildingType = 'HUT' | 'STONE_HOUSE' | 'BEACH_COTTAGE';
 
 export interface BuildingCost {
+  twigs?: number;
+  pebbles?: number;
   wood?: number;
   stone?: number;
   fibre?: number;
@@ -49,11 +51,26 @@ export interface PlacedBuilding {
 }
 
 export interface Inventory {
-  wood: number;
-  stone: number;
-  fibre: number;
-  shells: number;
-  sand: number;
+  twigs: number;       // Male grančice sa zemlje
+  pebbles: number;     // Mali kamenčići sa zemlje
+  wood: number;        // Drvo (zahtijeva sjekiru)
+  stone: number;       // Kamen (zahtijeva kramp)
+  fibre: number;       // Vlakna
+  shells: number;      // Školjke
+  sand: number;        // Pijesak
+  hasAxe: boolean;     // Kamena sjekira
+  hasPickaxe: boolean; // Kameni kramp
+  hasBag?: boolean;    // Pletena otočna torba
+  maxCapacity?: number;// Maksimalni kapacitet inventara (npr. 16)
+}
+
+export interface CraftingStationEntity {
+  id: string;
+  name: string; // "Obrtnički panj"
+  tileX: number;
+  tileY: number;
+  x: number;
+  y: number;
 }
 
 export type PetType = 'DOG' | 'CAT' | 'RABBIT' | 'PARROT' | 'HAMSTER';

@@ -1,11 +1,14 @@
 import React from 'react';
-import { Hammer, Check, X, Axe, Pickaxe, Hand, Sparkles, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
-import { ResourceNode, BuildingType, NPCEntity } from '../game/types';
+import { Hammer, Check, X, Axe, Pickaxe, Hand, Sparkles, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, AlertTriangle } from 'lucide-react';
+import { ResourceNode, BuildingType, NPCEntity, CraftingStationEntity, Inventory } from '../game/types';
 import { RESOURCE_INFO, BUILDINGS } from '../game/constants';
 
 interface ActionControlsProps {
   targetNode: ResourceNode | null;
   targetNpc?: NPCEntity | null;
+  targetStation?: CraftingStationEntity | null;
+  inventory?: Inventory;
+  isInventoryFull?: boolean;
   placementMode: {
     active: boolean;
     buildingType: BuildingType;
@@ -20,6 +23,9 @@ interface ActionControlsProps {
 export const ActionControls: React.FC<ActionControlsProps> = ({
   targetNode,
   targetNpc,
+  targetStation,
+  inventory,
+  isInventoryFull = false,
   placementMode,
   onAction,
   onOpenBuild,
@@ -30,7 +36,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
 
   // Determine button icon and label
   let actionLabel = 'Djeluj';
-  let ActionIcon = Hand;
+  let ActionIcon: React.ComponentType<{ className?: string }> = Hand;
   let actionBg = 'bg-amber-500/80 hover:bg-amber-500 text-slate-950';
 
   if (placementMode && placementMode.active) {
@@ -39,19 +45,38 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     actionBg = placementMode.isValid
       ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white shadow-emerald-500/30'
       : 'bg-slate-700/80 text-slate-400 cursor-not-allowed';
+  } else if (targetStation) {
+    actionLabel = 'Izradi';
+    ActionIcon = Hammer;
+    actionBg = 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-amber-400/50 ring-2 ring-amber-300/60 animate-pulse';
   } else if (targetNpc) {
     actionLabel = 'Pričaj';
     ActionIcon = MessageSquare;
     actionBg = 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-cyan-400/40 ring-2 ring-cyan-300/50';
   } else if (targetNode && targetNode.available) {
     const info = RESOURCE_INFO[targetNode.type];
-    actionLabel = info.toolAction;
-    if (targetNode.type === 'WOOD') ActionIcon = Axe;
-    else if (targetNode.type === 'STONE') ActionIcon = Pickaxe;
-    else if (targetNode.type === 'FIBRE') ActionIcon = Sparkles;
-    else ActionIcon = Hand;
 
-    actionBg = 'bg-amber-400/90 hover:bg-amber-400 text-slate-950 shadow-amber-400/30';
+    if (targetNode.type === 'WOOD' && !inventory?.hasAxe) {
+      actionLabel = 'Sjekira?';
+      ActionIcon = Axe;
+      actionBg = 'bg-amber-950/80 text-amber-200 border border-amber-600/60';
+    } else if (targetNode.type === 'STONE' && !inventory?.hasPickaxe) {
+      actionLabel = 'Kramp?';
+      ActionIcon = Pickaxe;
+      actionBg = 'bg-sky-950/80 text-sky-200 border border-sky-600/60';
+    } else if (isInventoryFull) {
+      actionLabel = 'Pun ruksak';
+      ActionIcon = AlertTriangle;
+      actionBg = 'bg-rose-950/80 text-rose-300 border border-rose-600/60';
+    } else {
+      actionLabel = info.toolAction;
+      if (targetNode.type === 'WOOD') ActionIcon = Axe;
+      else if (targetNode.type === 'STONE') ActionIcon = Pickaxe;
+      else if (targetNode.type === 'FIBRE') ActionIcon = Sparkles;
+      else ActionIcon = Hand;
+
+      actionBg = 'bg-amber-400/90 hover:bg-amber-400 text-slate-950 shadow-amber-400/30';
+    }
   }
 
   return (

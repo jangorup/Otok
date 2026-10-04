@@ -3,6 +3,7 @@ import { BuildingDefinition, ResourceType } from './types';
 export const MAP_WIDTH = 42;
 export const MAP_HEIGHT = 42;
 export const TILE_SIZE = 48; // pixels per tile in game world
+export const CAMERA_ZOOM = 1.25; // camera zoom fixed at 1.25x
 
 export const PLAYER_WIDTH = 28;
 export const PLAYER_HEIGHT = 38;
@@ -52,12 +53,26 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
   },
 };
 
+export const DEFAULT_MAX_INVENTORY_CAPACITY = 16; // Ograničen kapacitet inventara
+
 export const RESOURCE_INFO: Record<ResourceType, {
   name: string;
   unitName: string;
   color: string;
   toolAction: string;
 }> = {
+  TWIGS: {
+    name: 'Grančice',
+    unitName: '+1 Grančica',
+    color: '#d97706',
+    toolAction: 'Pokupi',
+  },
+  PEBBLES: {
+    name: 'Kamenčići',
+    unitName: '+1 Kamenčić',
+    color: '#94a3b8',
+    toolAction: 'Pokupi',
+  },
   WOOD: {
     name: 'Drvo',
     unitName: '+1 Drvo',

@@ -9,8 +9,6 @@ interface SettingsModalProps {
   onOpenLobby?: () => void;
   onShowIntro?: () => void;
   onClose: () => void;
-  zoomLevel?: number;
-  onSetZoom?: (zoom: number) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -21,8 +19,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenLobby,
   onShowIntro,
   onClose,
-  zoomLevel = 1.55,
-  onSetZoom,
 }) => {
   const [confirmNewGame, setConfirmNewGame] = useState<boolean>(false);
 
@@ -150,50 +146,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
 
-          {/* Camera Zoom Setting (Closer for mobile) */}
-          {onSetZoom && (
-            <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-sky-500/15 text-sky-400">
-                  <ZoomIn className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-200">
-                    Udaljenost kamere (Zum)
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Približava pogled za ugodnije igranje na mobitelu
-                  </div>
-                </div>
+          {/* Camera Zoom Indicator (Fixed at 1.25x) */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-sky-500/15 text-sky-400">
+                <ZoomIn className="w-5 h-5" />
               </div>
-
-              <div className="grid grid-cols-4 gap-1.5 pt-1">
-                {[
-                  { label: 'Udaljeno', val: 1.0, sub: '1.0x' },
-                  { label: 'Srednje', val: 1.25, sub: '1.25x' },
-                  { label: 'Blizu ★', val: 1.55, sub: '1.55x' },
-                  { label: 'Vrlo blizu', val: 1.75, sub: '1.75x' },
-                ].map((opt) => {
-                  const isSelected = Math.abs(zoomLevel - opt.val) < 0.08;
-                  return (
-                    <button
-                      key={opt.val}
-                      type="button"
-                      onClick={() => onSetZoom(opt.val)}
-                      className={`py-2 px-1 rounded-lg text-center transition-all ${
-                        isSelected
-                          ? 'bg-cyan-600 text-white font-bold ring-2 ring-cyan-400 shadow-md scale-[1.02]'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold">{opt.label}</div>
-                      <div className="text-[10px] opacity-75">{opt.sub}</div>
-                    </button>
-                  );
-                })}
+              <div>
+                <div className="text-sm font-semibold text-slate-200">
+                  Udaljenost kamere
+                </div>
+                <div className="text-xs text-slate-400">
+                  Fiksirana na 1.25x za ugodno igranje na mobitelu
+                </div>
               </div>
             </div>
-          )}
+
+            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-950/60 text-sky-300 border border-sky-800/50">
+              1.25x
+            </span>
+          </div>
 
           {/* How to play / info */}
           <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 text-xs text-slate-300 space-y-2">

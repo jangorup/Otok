@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from './game/engine';
 import { GameRenderer } from './game/renderer';
 import { soundSystem } from './game/audio';
-import { TILE_SIZE } from './game/constants';
+import { TILE_SIZE, CAMERA_ZOOM } from './game/constants';
 import { Inventory, ResourceNode, BuildingType, NPCEntity } from './game/types';
 import { OrientationLock } from './components/OrientationLock';
 import { TopBar } from './components/TopBar';
@@ -18,7 +18,9 @@ import { SettingsModal } from './components/SettingsModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { JournalModal } from './components/JournalModal';
 import { DialogueModal } from './components/DialogueModal';
+import { CraftingModal } from './components/CraftingModal';
 import { Lobby } from './components/Lobby';
+import { CraftingStationEntity } from './game/types';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'LOBBY' | 'GAME'>('LOBBY');
@@ -32,17 +34,25 @@ export default function App() {
 
   // UI State
   const [inventory, setInventory] = useState<Inventory>({
+    twigs: 0,
+    pebbles: 0,
     wood: 0,
     stone: 0,
     fibre: 0,
     shells: 0,
     sand: 0,
+    hasAxe: false,
+    hasPickaxe: false,
+    hasBag: false,
+    maxCapacity: 16,
   });
   const [targetNode, setTargetNode] = useState<ResourceNode | null>(null);
   const [targetNpc, setTargetNpc] = useState<NPCEntity | null>(null);
+  const [targetStation, setTargetStation] = useState<CraftingStationEntity | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<number>(0.25);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isBuildOpen, setIsBuildOpen] = useState<boolean>(false);
+  const [isCraftingOpen, setIsCraftingOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isIntroOpen, setIsIntroOpen] = useState<boolean>(false);
   const [isJournalOpen, setIsJournalOpen] = useState<boolean>(false);
@@ -55,41 +65,8 @@ export default function App() {
     isValid: boolean;
   } | null>(null);
 
-  // Camera Zoom Level (defaulting to 1.55x for close, comfortable mobile experience)
-  const [zoomLevel, setZoomLevel] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('kletva_otoka_zoom');
-      if (saved) {
-        const val = parseFloat(saved);
-        if (!isNaN(val) && val >= 0.8 && val <= 2.2) return val;
-      }
-    } catch {}
-    return 1.55;
-  });
-
-  const zoomLevelRef = useRef<number>(zoomLevel);
-  zoomLevelRef.current = zoomLevel;
-
-  const handleSetZoom = useCallback((zoom: number) => {
-    setZoomLevel(zoom);
-    try {
-      localStorage.setItem('kletva_otoka_zoom', zoom.toString());
-    } catch {}
-  }, []);
-
-  const handleCycleZoom = useCallback(() => {
-    setZoomLevel((prev) => {
-      let next = 1.55;
-      if (prev >= 1.7) next = 1.25;
-      else if (prev >= 1.5) next = 1.75;
-      else if (prev >= 1.2) next = 1.55;
-      else next = 1.55;
-      try {
-        localStorage.setItem('kletva_otoka_zoom', next.toString());
-      } catch {}
-      return next;
-    });
-  }, []);
+  // Camera Zoom Level is locked to 1.25x (CAMERA_ZOOM)
+  const zoomLevel = CAMERA_ZOOM;
 
   // Initialize Engine & Renderer
   useEffect(() => {
@@ -211,7 +188,7 @@ export default function App() {
           gameTime: engine.gameTime,
           placementMode: engine.placementMode,
           camera: engine.camera,
-          zoom: zoomLevelRef.current,
+          zoom: CAMERA_ZOOM,
         });
       }
 
@@ -404,13 +381,12 @@ export default function App() {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // Convert screen coordinates to world coordinates taking zoom into account
+    // Convert screen coordinates to world coordinates taking zoom into account (fixed at 1.25x)
     const canvasCenterX = rect.width / 2;
     const canvasCenterY = rect.height / 2;
-    const currentZoom = zoomLevelRef.current || 1.55;
 
-    const worldX = engine.camera.x + (clickX - canvasCenterX) / currentZoom;
-    const worldY = engine.camera.y + (clickY - canvasCenterY) / currentZoom;
+    const worldX = engine.camera.x + (clickX - canvasCenterX) / CAMERA_ZOOM;
+    const worldY = engine.camera.y + (clickY - canvasCenterY) / CAMERA_ZOOM;
 
     const tileX = Math.floor(worldX / TILE_SIZE);
     const tileY = Math.floor(worldY / TILE_SIZE);
@@ -481,8 +457,6 @@ export default function App() {
             timeOfDay={timeOfDay}
             isMuted={isMuted}
             secretsCount={discoveredSecretIds.length}
-            zoomLevel={zoomLevel}
-            onCycleZoom={handleCycleZoom}
             onToggleMute={handleToggleMute}
             onOpenJournal={() => setIsJournalOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
@@ -519,8 +493,6 @@ export default function App() {
           <SettingsModal
             isOpen={isSettingsOpen}
             isMuted={isMuted}
-            zoomLevel={zoomLevel}
-            onSetZoom={handleSetZoom}
             onToggleMute={handleToggleMute}
             onNewGame={handleNewGame}
             onOpenLobby={handleOpenLobby}

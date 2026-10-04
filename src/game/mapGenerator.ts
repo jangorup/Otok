@@ -1,5 +1,5 @@
 import { MAP_WIDTH, MAP_HEIGHT, TILE_SIZE } from './constants';
-import { TileType, ResourceNode, NPCEntity } from './types';
+import { TileType, ResourceNode, NPCEntity, CraftingStationEntity } from './types';
 import { NPC_VILLAGERS } from './storyData';
 
 export interface GameMap {
@@ -7,6 +7,7 @@ export interface GameMap {
   resources: ResourceNode[];
   initialPlayerPos: { x: number; y: number };
   npcs: NPCEntity[];
+  craftingStation?: CraftingStationEntity;
 }
 
 // Simple deterministic noise for reproducible organic island generation
@@ -131,7 +132,7 @@ export function generateIslandMap(seed: number = 42): GameMap {
       const rand = pseudoNoise(x * 3.7, y * 4.1, seed + 777);
 
       if (tile === 'SAND') {
-        if (rand < 0.1) {
+        if (rand < 0.08) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
@@ -139,6 +140,24 @@ export function generateIslandMap(seed: number = 42): GameMap {
             type: 'SHELL',
             available: true,
             variant: Math.floor(rand * 30) % 3,
+          });
+        } else if (rand >= 0.08 && rand < 0.16) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'PEBBLES', // Smoothed pebbles on the beach
+            available: true,
+            variant: Math.floor(rand * 20) % 3,
+          });
+        } else if (rand >= 0.16 && rand < 0.22) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'TWIGS', // Driftwood twigs on the shore
+            available: true,
+            variant: Math.floor(rand * 25) % 3,
           });
         } else if (rand > 0.88) {
           resources.push({
@@ -156,11 +175,29 @@ export function generateIslandMap(seed: number = 42): GameMap {
             id: `res_${resourceCounter++}`,
             x,
             y,
-            type: 'WOOD', // Olive tree / coastal tree
+            type: 'WOOD', // Big tree (needs axe)
             available: true,
             variant: Math.floor(rand * 50) % 3,
           });
-        } else if (rand > 0.08 && rand < 0.17) {
+        } else if (rand >= 0.08 && rand < 0.16) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'TWIGS', // Small dry branches on the grass
+            available: true,
+            variant: Math.floor(rand * 35) % 3,
+          });
+        } else if (rand >= 0.16 && rand < 0.24) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'PEBBLES', // Small karst pebbles on the grass
+            available: true,
+            variant: Math.floor(rand * 30) % 3,
+          });
+        } else if (rand >= 0.24 && rand < 0.32) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
@@ -174,22 +211,40 @@ export function generateIslandMap(seed: number = 42): GameMap {
             id: `res_${resourceCounter++}`,
             x,
             y,
-            type: 'STONE', // Natural weathered boulder
+            type: 'STONE', // Big boulder (needs pickaxe)
             available: true,
             variant: Math.floor(rand * 25) % 3,
           });
         }
       } else if (tile === 'FOREST_GRASS') {
-        if (rand < 0.22) {
+        if (rand < 0.18) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
             y,
-            type: 'WOOD',
+            type: 'WOOD', // Big pine / oak tree
             available: true,
             variant: Math.floor(rand * 60) % 3,
           });
-        } else if (rand >= 0.22 && rand < 0.35) {
+        } else if (rand >= 0.18 && rand < 0.28) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'TWIGS', // Abundant twigs in forest
+            available: true,
+            variant: Math.floor(rand * 45) % 3,
+          });
+        } else if (rand >= 0.28 && rand < 0.36) {
+          resources.push({
+            id: `res_${resourceCounter++}`,
+            x,
+            y,
+            type: 'PEBBLES', // Forest stone pebbles
+            available: true,
+            variant: Math.floor(rand * 40) % 3,
+          });
+        } else if (rand >= 0.36 && rand < 0.46) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
@@ -198,12 +253,12 @@ export function generateIslandMap(seed: number = 42): GameMap {
             available: true,
             variant: Math.floor(rand * 45) % 3,
           });
-        } else if (rand >= 0.35 && rand < 0.44) {
+        } else if (rand >= 0.46 && rand < 0.54) {
           resources.push({
             id: `res_${resourceCounter++}`,
             x,
             y,
-            type: 'STONE',
+            type: 'STONE', // Karst rocks
             available: true,
             variant: Math.floor(rand * 30) % 3,
           });
@@ -283,7 +338,18 @@ export function generateIslandMap(seed: number = 42): GameMap {
     y: posMara.y * TILE_SIZE + TILE_SIZE / 2,
   });
 
-  // Filter out any resource node that ended up on the same tile as an NPC
+  // 4. Obrtnički panj (Crafting workstation placed near spawn clearing)
+  const posStation = findFreeDryTile(spawnX + 1, spawnY - 2, 'GRASS');
+  const craftingStation: CraftingStationEntity = {
+    id: 'station_panj',
+    name: 'Obrtnički panj',
+    tileX: posStation.x,
+    tileY: posStation.y,
+    x: posStation.x * TILE_SIZE + TILE_SIZE / 2,
+    y: posStation.y * TILE_SIZE + TILE_SIZE / 2,
+  };
+
+  // Filter out any resource node that ended up on the same tile as an NPC or crafting station
   const cleanedResources = resources.filter((res) => !occupiedTiles.has(`${res.x},${res.y}`));
 
   // Initial player spawn position on the peaceful southern beach
@@ -297,5 +363,6 @@ export function generateIslandMap(seed: number = 42): GameMap {
     resources: cleanedResources,
     initialPlayerPos,
     npcs,
+    craftingStation,
   };
 }
